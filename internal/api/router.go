@@ -527,9 +527,19 @@ func (s *Server) handleMonitors(w http.ResponseWriter, r *http.Request, parts []
 			return
 		}
 		AddMonitor(&entry)
+		// Return a copy without the mutex to avoid vet warning about copying lock
 		s.sendJSON(w, http.StatusCreated, map[string]interface{}{
 			"success": true,
-			"data":    entry,
+			"data": map[string]interface{}{
+				"id":          entry.ID,
+				"name":        entry.Name,
+				"type":        entry.Type,
+				"tool":        entry.Tool,
+				"value":       entry.Value,
+				"interval":    entry.Interval,
+				"last_status": entry.LastStatus,
+				"last_check":  entry.LastCheck,
+			},
 		})
 	case "DELETE":
 		if len(parts) < 2 {

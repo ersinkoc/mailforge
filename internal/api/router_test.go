@@ -381,7 +381,7 @@ func TestPortScanPorts_Parsing(t *testing.T) {
 		{"25,587,465,443,993,995", []int{25, 587, 465, 443, 993, 995}},
 		{"80,443,8080", []int{80, 443, 8080}},
 		{"0", []int{}},
-		{"65536", []int{}}, // Invalid port
+		{"65536", []int{}},             // Invalid port
 		{"25,abc,443", []int{25, 443}}, // Mixed valid/invalid
 	}
 
@@ -434,7 +434,7 @@ func TestAPIEndpoints_RouteMatching(t *testing.T) {
 		{"/api/", "", ""},
 		{"/api/health", "health", ""},
 		{"/api/metrics", "metrics", ""},
-		{"/api/dns", "dns", ""},  // /api/dns extracts "dns" as tool (no arg)
+		{"/api/dns", "dns", ""}, // /api/dns extracts "dns" as tool (no arg)
 		{"/api/dns/example.com", "dns", "example.com"},
 		{"/api/mx/example.com", "mx", "example.com"},
 		{"/api/spf/example.com", "spf", "example.com"},
@@ -506,9 +506,9 @@ func TestMetricsRecording(t *testing.T) {
 	metrics := &Metrics{}
 
 	// Record some requests
-	metrics.record("dns", 100*1000000, nil)           // 100ms
-	metrics.record("dns", 200*1000000, nil)           // 200ms
-	metrics.record("smtp", 500*1000000, nil)          // 500ms
+	metrics.record("dns", 100*1000000, nil)                   // 100ms
+	metrics.record("dns", 200*1000000, nil)                   // 200ms
+	metrics.record("smtp", 500*1000000, nil)                  // 500ms
 	metrics.record("smtp", 1000*1000000, fmt.Errorf("error")) // 1000ms with error
 
 	snapshot := metrics.snapshot()

@@ -7,6 +7,7 @@ import (
 	"net"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -15,9 +16,9 @@ import (
 func TestOpenRelay(host string, port int) RelayTestResult {
 	start := time.Now()
 	result := RelayTestResult{
-		Host:    host,
-		Port:    port,
-		Tests:   []RelayTest{},
+		Host:     host,
+		Port:     port,
+		Tests:    []RelayTest{},
 		Warnings: []string{},
 	}
 
@@ -64,7 +65,7 @@ func TestOpenRelay(host string, port int) RelayTestResult {
 }
 
 func attemptRelay(host string, port int, from, to string) (bool, error) {
-	addr := fmt.Sprintf("%s:%d", host, port)
+	addr := net.JoinHostPort(host, strconv.Itoa(port))
 	dialer := &net.Dialer{Timeout: 8 * time.Second}
 	conn, err := dialer.Dial("tcp", addr)
 	if err != nil {

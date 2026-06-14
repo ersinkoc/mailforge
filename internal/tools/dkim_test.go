@@ -48,7 +48,7 @@ func TestEstimateKeySize(t *testing.T) {
 		key      string
 		expected int
 	}{
-		{"shortkey", 1024},         // < 200 chars
+		{"shortkey", 1024},                 // < 200 chars
 		{string(make([]byte, 150)), 1024},  // < 200 chars
 		{string(make([]byte, 250)), 2048},  // 200-400 chars
 		{string(make([]byte, 350)), 2048},  // 200-400 chars

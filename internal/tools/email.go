@@ -146,8 +146,8 @@ func ValidateEmail(email string) EmailValidationResult {
 	start := time.Now()
 	email = strings.TrimSpace(strings.ToLower(email))
 	result := EmailValidationResult{
-		Email:    email,
-		Checks:   []EmailCheck{},
+		Email:     email,
+		Checks:    []EmailCheck{},
 		MXRecords: []string{},
 	}
 

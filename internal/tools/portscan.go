@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -103,7 +104,7 @@ func ScanPorts(host string, ports []int) PortScanResult {
 func scanPort(host string, port int) PortInfo {
 	info := PortInfo{Port: port, State: "closed"}
 
-	addr := fmt.Sprintf("%s:%d", host, port)
+	addr := net.JoinHostPort(host, strconv.Itoa(port))
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 

@@ -129,7 +129,7 @@ func TestScanPorts_TimeoutBehavior(t *testing.T) {
 	// Scan a non-routable IP (TEST-NET-1, RFC 5737) to test timeout
 	result := ScanPorts("192.0.2.1", []int{80})
 	if result.Error != "" {
-	t.Logf("Note: error on non-routable IP is acceptable: %s", result.Error)
+		t.Logf("Note: error on non-routable IP is acceptable: %s", result.Error)
 	}
 	if len(result.Ports) > 0 {
 		port := result.Ports[0]
@@ -325,10 +325,11 @@ func TestScanPorts_BannerShortNoTruncation(t *testing.T) {
 		t.Errorf("Expected state 'open', got %q", portInfo.State)
 	}
 	if portInfo.Banner != shortBanner {
-		t.Errorf("Banner should not be truncated for short strings, got %q, want %q", portInfo.Banner, shortBanner)		}
-		if strings.HasSuffix(portInfo.Banner, "...") {
-			t.Errorf("Short banner should not end with '...', got: %q", portInfo.Banner)
-		}
+		t.Errorf("Banner should not be truncated for short strings, got %q, want %q", portInfo.Banner, shortBanner)
+	}
+	if strings.HasSuffix(portInfo.Banner, "...") {
+		t.Errorf("Short banner should not end with '...', got: %q", portInfo.Banner)
+	}
 }
 
 func TestScanPorts_Banner99Chars(t *testing.T) {

@@ -131,10 +131,10 @@ func ComputeDeliverability(domain string) DeliverabilityResult {
 
 func gradeComponent(passed bool, name, detail string) ComponentCheck {
 	c := ComponentCheck{
-		Name: name,
+		Name:    name,
 		Present: detail != "",
-		Valid: passed,
-		Detail: detail,
+		Valid:   passed,
+		Detail:  detail,
 	}
 	if passed {
 		c.Score = 100

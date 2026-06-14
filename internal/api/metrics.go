@@ -11,7 +11,7 @@ type Metrics struct {
 	StartTime    time.Time
 	totalReqs    uint64
 	totalErrors  uint64
-	totalLatency int64 // microseconds
+	totalLatency int64    // microseconds
 	byTool       sync.Map // string -> *toolMetric
 }
 
@@ -57,11 +57,11 @@ func (m *Metrics) snapshot() map[string]interface{} {
 			avgLat = atomic.LoadInt64(&tm.latencyNs) / int64(count) / 1_000_000 // ms
 		}
 		tools = append(tools, map[string]interface{}{
-			"tool":          key.(string),
-			"requests":      count,
-			"errors":        errs,
+			"tool":           key.(string),
+			"requests":       count,
+			"errors":         errs,
 			"avg_latency_ms": avgLat,
-			"last_used":     time.Unix(0, atomic.LoadInt64(&tm.lastUsed)).UTC().Format(time.RFC3339),
+			"last_used":      time.Unix(0, atomic.LoadInt64(&tm.lastUsed)).UTC().Format(time.RFC3339),
 		})
 		return true
 	})

@@ -18,11 +18,11 @@ import (
 // from the MailForge backend to the React UI.
 
 const (
-	wsGUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-	wsText = 0x1
+	wsGUID  = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+	wsText  = 0x1
 	wsClose = 0x8
-	wsPing = 0x9
-	wsPong = 0xA
+	wsPing  = 0x9
+	wsPong  = 0xA
 )
 
 type wsConn struct {

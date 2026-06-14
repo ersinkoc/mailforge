@@ -76,7 +76,7 @@ func TestParseWhoisField(t *testing.T) {
 		{"Name Server: ns1.example.com", []string{"name server:", "nserver:"}, "ns1.example.com"},
 		{"nserver: ns1.example.com", []string{"name server:", "nserver:"}, "ns1.example.com"},
 		{"Some Random: Value", []string{"registrar:"}, ""}, // No match
-		{"", []string{"registrar:"}, ""},                    // Empty line
+		{"", []string{"registrar:"}, ""},                   // Empty line
 	}
 
 	for _, tt := range tests {

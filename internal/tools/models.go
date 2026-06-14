@@ -2,18 +2,18 @@ package tools
 
 // MX Lookup Models
 type MXLookupResult struct {
-	Domain   string      `json:"domain"`
-	MX       []MXDetail  `json:"mx,omitempty"`
-	Warn     string      `json:"warn,omitempty"`
-	Error    string      `json:"error,omitempty"`
-	Duration int64       `json:"duration_ms"`
+	Domain   string     `json:"domain"`
+	MX       []MXDetail `json:"mx,omitempty"`
+	Warn     string     `json:"warn,omitempty"`
+	Error    string     `json:"error,omitempty"`
+	Duration int64      `json:"duration_ms"`
 }
 
 type MXDetail struct {
-	Host       string   `json:"host"`
-	Priority   uint16   `json:"priority"`
-	IPs        []string `json:"ips,omitempty"`
-	Valid      bool     `json:"valid"`
+	Host     string   `json:"host"`
+	Priority uint16   `json:"priority"`
+	IPs      []string `json:"ips,omitempty"`
+	Valid    bool     `json:"valid"`
 }
 
 // DNS Lookup Models
@@ -53,18 +53,18 @@ type CNAMERecord struct {
 }
 
 type DNSLookupResult struct {
-	Domain    string       `json:"domain"`
-	MX        []MXRecord  `json:"mx,omitempty"`
-	A         []ARecord   `json:"a,omitempty"`
-	AAAA      []AAAARecord `json:"aaaa,omitempty"`
-	TXT       []TXTRecord  `json:"txt,omitempty"`
-	NS        []NSRecord   `json:"ns,omitempty"`
-	SOA       *SOARecord   `json:"soa,omitempty"`
-	CNAME     *CNAMERecord `json:"cname,omitempty"`
-	PTR       []string     `json:"ptr,omitempty"`
-	Warn      string       `json:"warn,omitempty"`
-	Error     string       `json:"error,omitempty"`
-	Duration  int64        `json:"duration_ms"`
+	Domain   string       `json:"domain"`
+	MX       []MXRecord   `json:"mx,omitempty"`
+	A        []ARecord    `json:"a,omitempty"`
+	AAAA     []AAAARecord `json:"aaaa,omitempty"`
+	TXT      []TXTRecord  `json:"txt,omitempty"`
+	NS       []NSRecord   `json:"ns,omitempty"`
+	SOA      *SOARecord   `json:"soa,omitempty"`
+	CNAME    *CNAMERecord `json:"cname,omitempty"`
+	PTR      []string     `json:"ptr,omitempty"`
+	Warn     string       `json:"warn,omitempty"`
+	Error    string       `json:"error,omitempty"`
+	Duration int64        `json:"duration_ms"`
 }
 
 // Blacklist Check Models
@@ -76,27 +76,27 @@ type BlacklistEntry struct {
 }
 
 type BlacklistResult struct {
-	IP       string            `json:"ip"`
-	Lists    []BlacklistEntry  `json:"lists"`
-	Listed   int               `json:"listed_count"`
-	Clean    int               `json:"clean_count"`
-	Total    int               `json:"total_count"`
-	Error    string            `json:"error,omitempty"`
-	Duration int64             `json:"duration_ms"`
+	IP       string           `json:"ip"`
+	Lists    []BlacklistEntry `json:"lists"`
+	Listed   int              `json:"listed_count"`
+	Clean    int              `json:"clean_count"`
+	Total    int              `json:"total_count"`
+	Error    string           `json:"error,omitempty"`
+	Duration int64            `json:"duration_ms"`
 }
 
 // SPF Models
 type SPFResult struct {
-	Domain       string   `json:"domain"`
-	Record       string   `json:"record"`
-	Valid        bool     `json:"valid"`
-	Warnings     []string `json:"warnings"`
-	Errors       []string `json:"errors"`
-	DNSLookups   int      `json:"dns_lookups"`
-	MaxLookups   int      `json:"max_lookups"`
-	Mechanisms   []SPFMechanism `json:"mechanisms"`
-	Error        string   `json:"error,omitempty"`
-	Duration     int64    `json:"duration_ms"`
+	Domain     string         `json:"domain"`
+	Record     string         `json:"record"`
+	Valid      bool           `json:"valid"`
+	Warnings   []string       `json:"warnings"`
+	Errors     []string       `json:"errors"`
+	DNSLookups int            `json:"dns_lookups"`
+	MaxLookups int            `json:"max_lookups"`
+	Mechanisms []SPFMechanism `json:"mechanisms"`
+	Error      string         `json:"error,omitempty"`
+	Duration   int64          `json:"duration_ms"`
 }
 
 type SPFMechanism struct {
@@ -123,24 +123,24 @@ type DKIMResult struct {
 
 // DMARC Models
 type DMARCResult struct {
-	Domain       string         `json:"domain"`
-	Record       string         `json:"record"`
-	Valid        bool           `json:"valid"`
-	Policy       string         `json:"policy,omitempty"`
-	SubPolicy    string         `json:"sub_policy,omitempty"`
-	Percent      int            `json:"percent,omitempty"`
-	RUA          string         `json:"rua,omitempty"`
-	RUF          string         `json:"ruf,omitempty"`
-	ADKIM        string         `json:"adkim,omitempty"`
-	ASPF         string         `json:"aspf,omitempty"`
-	SpfDomain    string         `json:"spf_domain,omitempty"`
-	DkimDomain   string         `json:"dkim_domain,omitempty"`
-	Aggregate    []string       `json:"aggregate,omitempty"`
-	Forensic     []string       `json:"forensic,omitempty"`
-	Warnings     []string       `json:"warnings,omitempty"`
-	Errors       []string       `json:"errors,omitempty"`
-	Error        string         `json:"error,omitempty"`
-	Duration     int64          `json:"duration_ms"`
+	Domain     string   `json:"domain"`
+	Record     string   `json:"record"`
+	Valid      bool     `json:"valid"`
+	Policy     string   `json:"policy,omitempty"`
+	SubPolicy  string   `json:"sub_policy,omitempty"`
+	Percent    int      `json:"percent,omitempty"`
+	RUA        string   `json:"rua,omitempty"`
+	RUF        string   `json:"ruf,omitempty"`
+	ADKIM      string   `json:"adkim,omitempty"`
+	ASPF       string   `json:"aspf,omitempty"`
+	SpfDomain  string   `json:"spf_domain,omitempty"`
+	DkimDomain string   `json:"dkim_domain,omitempty"`
+	Aggregate  []string `json:"aggregate,omitempty"`
+	Forensic   []string `json:"forensic,omitempty"`
+	Warnings   []string `json:"warnings,omitempty"`
+	Errors     []string `json:"errors,omitempty"`
+	Error      string   `json:"error,omitempty"`
+	Duration   int64    `json:"duration_ms"`
 }
 
 // SMTP Test Models
@@ -167,11 +167,11 @@ type TLSCertificate struct {
 
 // Port Scanner Models
 type PortScanResult struct {
-	Host  string     `json:"host"`
-	IP    string     `json:"ip"`
-	Ports []PortInfo `json:"ports"`
-	Error string     `json:"error,omitempty"`
-	Duration int64  `json:"duration_ms"`
+	Host     string     `json:"host"`
+	IP       string     `json:"ip"`
+	Ports    []PortInfo `json:"ports"`
+	Error    string     `json:"error,omitempty"`
+	Duration int64      `json:"duration_ms"`
 }
 
 type PortInfo struct {
@@ -205,26 +205,25 @@ type HeaderAnalysisResult struct {
 }
 
 type RoutingHop struct {
-	Hop     int    `json:"hop"`
-	From    string `json:"from"`
-	To      string `json:"to"`
-	Date    string `json:"date"`
-	Delay   string `json:"delay,omitempty"`
-	Server  string `json:"server,omitempty"`
+	Hop    int    `json:"hop"`
+	From   string `json:"from"`
+	To     string `json:"to"`
+	Date   string `json:"date"`
+	Delay  string `json:"delay,omitempty"`
+	Server string `json:"server,omitempty"`
 }
 
 // WHOIS Models
 type WhoisResult struct {
-	Domain     string            `json:"domain"`
-	Server     string            `json:"server,omitempty"`
-	Registrar  string            `json:"registrar,omitempty"`
-	CreatedAt  string            `json:"created_at,omitempty"`
-	UpdatedAt  string            `json:"updated_at,omitempty"`
-	ExpiresAt  string            `json:"expires_at,omitempty"`
-	NameServers []string         `json:"name_servers,omitempty"`
-	Details    map[string]string `json:"details,omitempty"`
-	Cached     bool              `json:"cached,omitempty"`
-	Error      string            `json:"error,omitempty"`
-	Duration   int64             `json:"duration_ms"`
+	Domain      string            `json:"domain"`
+	Server      string            `json:"server,omitempty"`
+	Registrar   string            `json:"registrar,omitempty"`
+	CreatedAt   string            `json:"created_at,omitempty"`
+	UpdatedAt   string            `json:"updated_at,omitempty"`
+	ExpiresAt   string            `json:"expires_at,omitempty"`
+	NameServers []string          `json:"name_servers,omitempty"`
+	Details     map[string]string `json:"details,omitempty"`
+	Cached      bool              `json:"cached,omitempty"`
+	Error       string            `json:"error,omitempty"`
+	Duration    int64             `json:"duration_ms"`
 }
-
