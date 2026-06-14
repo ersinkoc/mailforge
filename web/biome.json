@@ -27,17 +27,25 @@
         "useExhaustiveDependencies": "off"
       },
       "style": {
-        "noNonNullAssertion": "off"
+        "noNonNullAssertion": "off",
+        "useTemplate": "off",
+        "useParseIntRadix": "off"
       },
       "suspicious": {
         "noExplicitAny": "off",
         "noArrayIndexKey": "off",
-        "useIterableCallbackReturn": "off"
+        "useIterableCallbackReturn": "off",
+        "noRedeclare": "off"
       },
       "a11y": {
         "useButtonType": "off",
         "noAutofocus": "off",
-        "noSvgWithoutTitle": "off"
+        "noSvgWithoutTitle": "off",
+        "noStaticElementInteractions": "off",
+        "useKeyWithClickEvents": "off"
+      },
+      "performance": {
+        "noAccumulatingSpread": "off"
       }
     }
   },
