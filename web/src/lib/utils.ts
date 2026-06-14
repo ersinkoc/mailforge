@@ -37,7 +37,7 @@ export function compactNumber(n: number): string {
 
 // ── Banner parser (SMTP) ─────────────────────────
 const BANNER_PATTERNS: { pattern: RegExp; name: string; version?: string }[] = [
-  { pattern: /Postfix(?:\s+(?:SMTP|ESMTP))?[\s\/]+([\d.]+)/i, name: 'Postfix' },
+  { pattern: /Postfix(?:\s+(?:SMTP|ESMTP))?[\s/]+([\d.]+)/i, name: 'Postfix' },
   { pattern: /Exim\s+([\d.]+)/i, name: 'Exim' },
   { pattern: /Sendmail\s+([\d.]+)/i, name: 'Sendmail' },
   { pattern: /Microsoft ESMTP MAIL Service.*?([\d.]+)/i, name: 'Exchange' },
@@ -45,7 +45,7 @@ const BANNER_PATTERNS: { pattern: RegExp; name: string; version?: string }[] = [
   { pattern: /Lotus-Domino\s+([\d.]+)/i, name: 'Lotus Domino' },
   { pattern: /hMailServer\s+([\d.]+)/i, name: 'hMailServer' },
   { pattern: /OpenSMTPD\s+([\d.]+)/i, name: 'OpenSMTPD' },
-  { pattern: /Dovecot\s+(?:Postfix|ESMTP)?[\s\/]*([\d.]*)/i, name: 'Dovecot' },
+  { pattern: /Dovecot\s+(?:Postfix|ESMTP)?[\s/]*([\d.]*)/i, name: 'Dovecot' },
   { pattern: /iRedMail\s+([\d.]+)/i, name: 'iRedMail' },
   { pattern: /Kerio Connect\s+([\d.]+)/i, name: 'Kerio Connect' },
   { pattern: /Zimbra\s+(?:collaboration\s+(?:Server\s+)?)?([\d.]+)/i, name: 'Zimbra' },
