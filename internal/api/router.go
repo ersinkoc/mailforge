@@ -117,7 +117,7 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 	if len(parts) == 0 || parts[0] == "" {
 		s.sendJSON(w, http.StatusOK, map[string]interface{}{
 			"service":     "MailForge API",
-			"version":     "2.0.0",
+			"version": "1.0.0",
 			"description": "Comprehensive email infrastructure diagnostic suite",
 			"endpoints":   endpointCatalog(),
 			"websocket":   []string{"ws /ws/monitor"},
@@ -133,7 +133,7 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 			"success": true,
 			"status":  "healthy",
 			"time":    time.Now().UTC().Format(time.RFC3339),
-			"version": "2.0.0",
+			"version": "1.0.0",
 			"uptime":  int64(time.Since(globalMetrics.StartTime).Seconds()),
 		})
 		return
@@ -151,7 +151,7 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 		s.sendJSON(w, http.StatusOK, map[string]interface{}{
 			"success":   true,
 			"openapi":   "3.0.3",
-			"info":      map[string]string{"title": "MailForge API", "version": "2.0.0"},
+			"info":      map[string]string{"title": "MailForge API", "version": "1.0.0"},
 			"endpoints": endpointCatalog(),
 		})
 		return

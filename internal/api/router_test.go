@@ -50,7 +50,7 @@ func TestRootEndpoint(t *testing.T) {
 		if r.URL.Path == "/api/" {
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"service":     "MailForge API",
-				"version":     "2.0.0",
+				"version": "1.0.0",
 				"description": "Comprehensive email infrastructure diagnostic suite",
 			})
 			return
@@ -74,8 +74,8 @@ func TestRootEndpoint(t *testing.T) {
 	if resp["service"] != "MailForge API" {
 		t.Errorf("expected service=MailForge API, got %v", resp["service"])
 	}
-	if resp["version"] != "2.0.0" {
-		t.Errorf("expected version=2.0.0, got %v", resp["version"])
+	if resp["version"] != "1.0.0" {
+		t.Errorf("expected version=1.0.0, got %v", resp["version"])
 	}
 }
 
