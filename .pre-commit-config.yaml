@@ -1,0 +1,40 @@
+# Pre-commit hooks configuration
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # Go formatting and linting
+  - repo: https://github.com/dnephin/pre-commit-golang
+    rev: v0.5.1
+    hooks:
+      - id: go-fmt
+      - id: go-vet
+      - id: go-mod-tidy
+
+  # Node.js formatting and linting
+  - repo: https://github.com/nick reorder/pre-commit-node
+    rev: v3.0.2
+    hooks:
+      - id: npm-format
+        args: ['--check']
+
+  # Biome linter for TypeScript/JSX
+  - repo: local
+    hooks:
+      - id: biome-lint
+        name: Biome Lint
+        entry: npx biome lint
+        language: system
+        types: [javascript, jsx, typescript, tsx]
+        pass_filenames: true
+
+  # Generic hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: detect-private-key
