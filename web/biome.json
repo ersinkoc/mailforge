@@ -28,8 +28,7 @@
       },
       "style": {
         "noNonNullAssertion": "off",
-        "useTemplate": "off",
-        "useParseIntRadix": "off"
+        "useTemplate": "off"
       },
       "suspicious": {
         "noExplicitAny": "off",
