@@ -1,0 +1,30 @@
+{
+  "name": "mailforge",
+  "version": "2.0.0",
+  "private": true,
+  "description": "MailForge — comprehensive email infrastructure diagnostic suite (Go + React)",
+  "scripts": {
+    "dev": "cd web && npm run dev",
+    "dev:server": "go run main.go",
+    "build": "cd web && npm run build",
+    "build:server": "go build -o mailforge .",
+    "start": "./mailforge",
+    "test": "cd internal/tools && go test -v ./...",
+    "test:race": "cd internal/tools && go test -race ./...",
+    "docker:build": "docker build -t mailforge .",
+    "docker:run": "docker run -p 8080:8080 mailforge",
+    "lint": "cd web && npm run lint 2>/dev/null || echo 'No linter configured'"
+  },
+  "keywords": [
+    "email",
+    "dns",
+    "spf",
+    "dkim",
+    "dmarc",
+    "smtp",
+    "diagnostics",
+    "infrastructure"
+  ],
+  "author": "",
+  "license": "MIT"
+}

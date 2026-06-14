@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c5cff"/>
+      <stop offset="100%" stop-color="#ff5ca8"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="7" fill="url(#g)"/>
+  <!-- Stylized envelope + lightning (Mail + Forge) -->
+  <path d="M6 11 L26 11 L26 22 L6 22 Z M6 11 L16 18 L26 11" fill="none" stroke="white" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M22 6 L24 9 L27 9.5 L24.5 11.5 L25 14.5 L22 13 L19 14.5 L19.5 11.5 L17 9.5 L20 9 Z" fill="white" opacity="0.9"/>
+</svg>

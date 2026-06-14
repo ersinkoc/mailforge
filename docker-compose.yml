@@ -1,0 +1,20 @@
+services:
+  mailforge:
+    build: .
+    image: mailforge:2.0
+    container_name: mailforge
+    ports:
+      - "8888:8080"
+    environment:
+      - PORT=8080
+      - TZ=UTC
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    labels:
+      org.opencontainers.image.title: "MailForge"
+      org.opencontainers.image.description: "Comprehensive email infrastructure diagnostic suite"
