@@ -66,6 +66,11 @@ export default function BlacklistCheck() {
     const validIps = ips.map(s => s.trim()).filter(Boolean)
     const total = validIps.length
 
+    // Accumulate bulk stats locally (not React state, to avoid timing issues)
+    let bulkTotal = 0
+    let bulkListed = 0
+    let bulkClean = 0
+
     // Semaphore-based concurrency limiter
     if (total === 0) { setBulkLoading(false); return }
     let running = 0
@@ -79,6 +84,10 @@ export default function BlacklistCheck() {
           api.blacklist(val).then((res) => {
             completed++
             setBulkProgress((completed / total) * 100)
+            // Accumulate stats locally
+            bulkTotal += res.data?.total_count || 0
+            bulkListed += res.data?.listed_count || 0
+            bulkClean += res.data?.clean_count || 0
             setBulkResults(prev => [...prev, { ip: val, data: res.data }])
           }).catch((e: any) => {
             completed++

@@ -245,11 +245,12 @@ func broadcastMonitorUpdate(entry *MonitorEntry) {
 		return
 	}
 	payload := map[string]interface{}{
-		"type":    "monitor_update",
-		"id":      entry.ID,
-		"status":  entry.LastStatus,
-		"message": entry.LastMessage,
-		"history": entry.History,
+		"type":       "monitor_update",
+		"id":         entry.ID,
+		"status":     entry.LastStatus,
+		"message":    entry.LastMessage,
+		"last_check": entry.LastCheck,
+		"history":    entry.History,
 	}
 	data, err := json.Marshal(payload)
 	if err != nil {

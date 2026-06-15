@@ -18,7 +18,7 @@ export default function APIDocs() {
   const [filter, setFilter] = useState('')
 
   useEffect(() => {
-    api.openapi().then((res) => setEndpoints(res.endpoints || [])).finally(() => setLoading(false))
+    api.openapi().then((res) => setEndpoints(res.data.endpoints || [])).finally(() => setLoading(false))
   }, [])
 
   const filtered = endpoints.filter(e => e.toLowerCase().includes(filter.toLowerCase()))
@@ -108,11 +108,12 @@ wscat -c ws://localhost:8181/ws/monitor`}</pre>
 
 function HealthCard({ title, endpoint, icon: Icon }: any) {
   const [data, setData] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
   useEffect(() => {
     const t = setInterval(() => {
-      fetch(`/api${endpoint.replace('/api', '')}`).then(r => r.json()).then(setData).catch(() => {})
+      fetch(`/api${endpoint.replace('/api', '')}`).then(r => r.json()).then(setData).catch((err) => setError(err.message))
     }, 5000)
-    fetch(`/api${endpoint.replace('/api', '')}`).then(r => r.json()).then(setData).catch(() => {})
+    fetch(`/api${endpoint.replace('/api', '')}`).then(r => r.json()).then(setData).catch((err) => setError(err.message))
     return () => clearInterval(t)
   }, [endpoint])
 
@@ -121,10 +122,12 @@ function HealthCard({ title, endpoint, icon: Icon }: any) {
       <div className="flex items-center gap-2 mb-2">
         <Icon className="w-4 h-4 text-accent" />
         <span className="text-xs font-semibold">{title}</span>
-        <span className="ml-auto w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
+        <span className={`ml-auto w-1.5 h-1.5 rounded-full ${error ? 'bg-danger' : 'bg-success'} ${!error && 'animate-pulse'}`} />
       </div>
       <code className="text-[10px] font-mono text-text-muted block truncate">{endpoint}</code>
-      {data && (
+      {error ? (
+        <div className="mt-2 text-[10px] text-danger truncate" title={error}>Error: {error}</div>
+      ) : data && (
         <div className="mt-2 text-[10px] text-text-secondary font-mono truncate">
           {data.status || data.openapi || `${data.total_requests || 0} reqs`}
         </div>

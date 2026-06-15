@@ -85,7 +85,7 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
       const type: HistoryType = isIP(value) ? 'ip' : 'domain'
       const filtered = prev.filter(h => !(h.value === value && h.tool === tool && h.type === type))
       const entry: HistoryEntry = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        id: `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
         value, tool, type,
         timestamp: Date.now(),
       }
@@ -267,8 +267,8 @@ export function ScanResultsProvider({ children }: { children: ReactNode }) {
       for (const [key, val] of Object.entries(raw)) {
         if (Array.isArray(val)) {
           migrated[key] = val
-        } else if (val && typeof val === 'object' && 'timestamp' in (val as any)) {
-          migrated[key] = [val as ScanResultCache]
+        } else if (val && typeof val === 'object' && 'timestamp' in val) {
+          migrated[key] = [val as unknown as ScanResultCache]
         }
       }
       return migrated
@@ -293,7 +293,7 @@ export function ScanResultsProvider({ children }: { children: ReactNode }) {
       if (detectedAlerts.length > 0) {
         const newAlerts: ScanAlert[] = detectedAlerts.map(a => ({
           ...a,
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          id: `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
           timestamp: Date.now(),
         }))
         setAlerts(prevAlerts => {
@@ -319,8 +319,8 @@ export function ScanResultsProvider({ children }: { children: ReactNode }) {
       for (const [key, val] of Object.entries(raw)) {
         if (Array.isArray(val)) {
           migrated[key] = val
-        } else if (val && typeof val === 'object' && 'timestamp' in (val as any)) {
-          migrated[key] = [val as ScanResultCache]
+        } else if (val && typeof val === 'object' && 'timestamp' in val) {
+          migrated[key] = [val as unknown as ScanResultCache]
         }
       }
       setLastResultsState(prev => {
@@ -414,6 +414,7 @@ export interface MonitorState {
   interval: number
   last_status: string
   last_check: number
+  last_message: string
   history: { timestamp: number; status: string; message: string; duration_ms: number }[]
 }
 
@@ -440,14 +441,24 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let ws: WebSocket | null = null
     let reconnectTimer: number | null = null
+    let reconnectAttempts = 0
+    const MAX_RECONNECT = 5
 
     const connect = () => {
       const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
       ws = new WebSocket(`${proto}://${window.location.host}/ws/monitor`)
-      ws.onopen = () => setWsConnected(true)
+      ws.onopen = () => {
+        setWsConnected(true)
+        reconnectAttempts = 0
+      }
       ws.onclose = () => {
         setWsConnected(false)
-        reconnectTimer = window.setTimeout(connect, 3000)
+        if (reconnectAttempts < MAX_RECONNECT) {
+          reconnectAttempts++
+          // Exponential backoff: 3s, 6s, 12s, 24s, 30s cap
+          const delay = Math.min(3000 * Math.pow(2, reconnectAttempts - 1), 30000)
+          reconnectTimer = window.setTimeout(connect, delay)
+        }
       }
       ws.onerror = () => ws?.close()
       ws.onmessage = (ev) => {
@@ -456,7 +467,7 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
           if (msg.type === 'monitor_snapshot' && Array.isArray(msg.monitors)) {
             setMonitors(msg.monitors)
           } else if (msg.type === 'monitor_update' && msg.id) {
-            setMonitors(prev => prev.map(m => m.id === msg.id ? { ...m, last_status: msg.status, last_check: msg.message, history: msg.history || m.history } : m))
+            setMonitors(prev => prev.map(m => m.id === msg.id ? { ...m, last_status: msg.status, last_check: msg.last_check, last_message: msg.message, history: msg.history || m.history } : m))
           }
         } catch {}
       }
