@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Settings as SettingsIcon, Sun, Moon, Monitor, Bell, Volume2, RefreshCw, Grid3x3, Layers, RotateCcw, Trash2, Download, Sparkles } from 'lucide-react'
 import PageHeader from '@/components/PageHeader'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useSettings, useTheme, useHistory, useScanResults, useMonitors } from '@/lib/store'
 import { useToast } from '@/components/Toast'
 import { cn } from '@/lib/utils'
@@ -15,7 +16,7 @@ export default function Settings() {
   const { monitors } = useMonitors()
   const { toast } = useToast()
   const navigate = useNavigate()
-  const [confirmReset, setConfirmReset] = useState(false)
+  const [showClearConfirm, setShowClearConfirm] = useState(false)
 
   const exportAll = () => {
     const data = {
@@ -36,7 +37,6 @@ export default function Settings() {
   }
 
   const clearAll = () => {
-    if (!confirm('This will erase ALL local data including history, alerts, and settings. Continue?')) return
     localStorage.clear()
     clearAllHistory()
     clearAlerts()
@@ -184,7 +184,7 @@ export default function Settings() {
               <Bell className="w-3.5 h-3.5" /> {monitors.length} Active Monitor{monitors.length !== 1 ? 's' : ''}
             </button>
             <button
-              onClick={clearAll}
+              onClick={() => setShowClearConfirm(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-danger-muted border border-danger/30 text-danger hover:bg-danger/20"
             >
               <Trash2 className="w-3.5 h-3.5" /> Erase All Data
@@ -200,6 +200,17 @@ export default function Settings() {
           </div>
         </Section>
       </div>
+
+      <ConfirmDialog
+        open={showClearConfirm}
+        onOpenChange={setShowClearConfirm}
+        title="Erase All Data?"
+        description="This will permanently delete all local data including history, alerts, and settings. This action cannot be undone."
+        confirmLabel="Erase Everything"
+        cancelLabel="Keep My Data"
+        onConfirm={clearAll}
+        variant="danger"
+      />
     </div>
   )
 }
