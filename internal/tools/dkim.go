@@ -125,3 +125,26 @@ func estimateKeySize(pubKey string) int {
 	}
 	return 4096
 }
+
+// CheckDKIMWithAllSelectors tries multiple common DKIM selectors and returns the first valid one
+func CheckDKIMWithAllSelectors(domain string) DKIMResult {
+	start := time.Now()
+
+	// Try each common selector
+	for _, selector := range CommonDKIMSelectors {
+		result := CheckDKIM(domain, selector)
+		if result.Valid {
+			result.Duration = time.Since(start).Milliseconds()
+			return result
+		}
+	}
+
+	// If no selector worked, return result with last error
+	result := DKIMResult{
+		Domain:   domain,
+		Selector: "all-tried",
+		Error:    "No valid DKIM record found with any common selector",
+		Duration: time.Since(start).Milliseconds(),
+	}
+	return result
+}

@@ -50,6 +50,7 @@ type IPGeoResult struct {
 	Threat      string  `json:"threat_level"`
 	Duration    int64   `json:"duration_ms"`
 	Error       string  `json:"error,omitempty"`
+	Warning     string  `json:"warning,omitempty"`
 }
 
 // ── TLS / SSL Inspector ──────────────────────────────────────

@@ -49,19 +49,35 @@ func CheckBlacklist(ip string) BlacklistResult {
 		return result
 	}
 
+	var reversed string
+
 	parts4 := parsedIP.To4()
-	if parts4 == nil {
-		result.Error = "Only IPv4 addresses are supported for blacklist checks"
-		result.Duration = time.Since(start).Milliseconds()
-		return result
+	if parts4 != nil {
+		// IPv4: reverse octets
+		parts := strings.Split(parts4.String(), ".")
+		if len(parts) == 4 {
+			reversed = fmt.Sprintf("%s.%s.%s.%s", parts[3], parts[2], parts[1], parts[0])
+		} else {
+			result.Error = "Only IPv4 addresses are supported for blacklist checks"
+			result.Duration = time.Since(start).Milliseconds()
+			return result
+		}
+	} else {
+		// IPv6: reverse the full 128-bit address as hex nibbles
+		ipv6 := parsedIP.To16()
+		if ipv6 == nil {
+			result.Error = "Invalid IP address"
+			result.Duration = time.Since(start).Milliseconds()
+			return result
+		}
+		// Reverse the hex representation nibble by nibble
+		var sb strings.Builder
+		for i := 15; i >= 0; i-- {
+			sb.WriteString(fmt.Sprintf("%02x.", ipv6[i]&0x0F))
+			sb.WriteString(fmt.Sprintf("%c.", (ipv6[i]>>4)&0x0F))
+		}
+		reversed = sb.String()[:sb.Len()-1] // Remove trailing dot
 	}
-	parts := strings.Split(parts4.String(), ".")
-	if len(parts) != 4 {
-		result.Error = "Only IPv4 addresses are supported for blacklist checks"
-		result.Duration = time.Since(start).Milliseconds()
-		return result
-	}
-	reversed := fmt.Sprintf("%s.%s.%s.%s", parts[3], parts[2], parts[1], parts[0])
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup

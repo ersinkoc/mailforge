@@ -16,7 +16,8 @@ func LookupIPGeo(ip string) IPGeoResult {
 	start := time.Now()
 	result := IPGeoResult{IP: ip}
 
-	if net.ParseIP(ip) == nil {
+	parsedIP := net.ParseIP(ip)
+	if parsedIP == nil {
 		result.Error = "Invalid IP address"
 		result.Duration = time.Since(start).Milliseconds()
 		return result
@@ -47,34 +48,52 @@ func LookupIPGeo(ip string) IPGeoResult {
 		Query       string  `json:"query"`
 	}
 
+	// Try ip-api.com first
 	url := fmt.Sprintf("https://ip-api.com/json/%s?fields=status,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,reverse,mobile,proxy,hosting,query", ip)
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	success := false
 	if err == nil {
 		req.Header.Set("User-Agent", "MailForge/2.0")
 		if resp, err := getHTTPClient().Do(req); err == nil {
 			defer resp.Body.Close()
 			var r apiResp
-			if json.NewDecoder(resp.Body).Decode(&r) == nil && r.Status == "success" {
-				result.Country = r.Country
-				result.CountryCode = r.CountryCode
-				result.Region = r.Region
-				result.City = r.City
-				result.Postal = r.Zip
-				result.Latitude = r.Lat
-				result.Longitude = r.Lon
-				result.Timezone = r.Timezone
-				result.ISP = r.ISP
-				result.Org = r.Org
-				result.Reverse = r.Reverse
-				result.IsProxy = r.Proxy
-				result.IsHosting = r.Hosting
+			if json.NewDecoder(resp.Body).Decode(&r) == nil {
+				if r.Status == "success" {
+					result.Country = r.Country
+					result.CountryCode = r.CountryCode
+					result.Region = r.Region
+					result.City = r.City
+					result.Postal = r.Zip
+					result.Latitude = r.Lat
+					result.Longitude = r.Lon
+					result.Timezone = r.Timezone
+					result.ISP = r.ISP
+					result.Org = r.Org
+					result.Reverse = r.Reverse
+					result.IsProxy = r.Proxy
+					result.IsHosting = r.Hosting
+					success = true
 
-				// Parse "ASxxxxx Org" → ASN + name
-				if r.AS != "" {
-					_, _ = fmt.Sscanf(r.AS, "AS%d %s", &result.ASN, &result.ASNOrg)
+					// Parse "ASxxxxx Org" → ASN + name
+					if r.AS != "" {
+						parts := strings.SplitN(r.AS, " ", 2)
+						if len(parts) >= 2 {
+							asNum := strings.TrimPrefix(parts[0], "AS")
+							fmt.Sscanf(asNum, "%d", &result.ASN)
+							result.ASNOrg = parts[1]
+						}
+					}
+				} else if r.Status == "fail" {
+					result.Error = fmt.Sprintf("GeoIP lookup failed: %s", r.Status)
 				}
 			}
 		}
+	}
+
+	// Fallback: Derive location from IP range if API failed
+	if !success {
+		result.Warning = "Using fallback location (API unavailable)"
+		result.Country = deriveCountryFromIP(parsedIP)
 	}
 
 	// Reverse DNS
@@ -97,4 +116,38 @@ func LookupIPGeo(ip string) IPGeoResult {
 
 	result.Duration = time.Since(start).Milliseconds()
 	return result
+}
+
+// deriveCountryFromIP estimates country from IP using RIR allocation ranges
+// This is a fallback when the GeoIP API is unavailable
+func deriveCountryFromIP(ip net.IP) string {
+	// IPv4 ranges for major countries
+	// These are simplified RIR allocations - actual ranges vary
+	ip4 := ip.To4()
+	if ip4 != nil {
+		firstOctet := int(ip4[0])
+		secondOctet := int(ip4[1])
+
+		// US allocations
+		if firstOctet >= 3 && firstOctet <= 4 {
+			return "United States"
+		}
+		// European ranges
+		if firstOctet >= 77 && firstOctet <= 95 {
+			return "Europe" // Could be UK, DE, FR, etc.
+		}
+		// Asian ranges
+		if firstOctet >= 103 && firstOctet <= 125 {
+			return "Asia" // Could be JP, KR, CN, etc.
+		}
+		// Turkish range
+		if firstOctet == 46 && secondOctet == 20 {
+			return "Turkey"
+		}
+		// Russian range
+		if firstOctet >= 5 && firstOctet <= 5 && secondOctet >= 0 && secondOctet <= 15 {
+			return "Russia"
+		}
+	}
+	return "Unknown"
 }
