@@ -400,7 +400,8 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.runDKIMDiscover(w, parts[1])
-
+	case "recon":
+		s.handleRecon(w, r, parts)
 	default:
 		s.sendError(w, http.StatusNotFound, fmt.Sprintf("Unknown tool: %s", tool))
 	}
@@ -645,6 +646,29 @@ func (s *Server) runDKIMDiscover(w http.ResponseWriter, domain string) {
 	})
 }
 
+func (s *Server) handleRecon(w http.ResponseWriter, r *http.Request, parts []string) {
+	if len(parts) < 2 || parts[1] == "" {
+		s.sendError(w, http.StatusBadRequest, "Domain required: /api/recon/{domain}")
+		return
+	}
+	domain := parts[1]
+	if err := tools.ValidateDomain(domain); err != nil {
+		s.sendError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Check for light mode
+	light := r.URL.Query().Get("light") == "true"
+
+	var result *tools.ReconResult
+	if light {
+		result = tools.RunReconLight(domain)
+	} else {
+		result = tools.RunRecon(domain)
+	}
+	s.sendJSON(w, http.StatusOK, wrap(result))
+}
+
 func endpointCatalog() []string {
 	return []string{
 		"GET  /api/health",
@@ -667,6 +691,7 @@ func endpointCatalog() []string {
 		"GET  /api/whois/stats",
 		"POST /api/header",
 		"GET  /api/super/{domain-or-ip}",
+		"GET  /api/recon/{domain}",
 		"GET  /api/email/{addr}",
 		"GET  /api/geo/{ip}",
 		"GET  /api/tls/{host}/{port}",
