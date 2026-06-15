@@ -216,6 +216,7 @@ type RoutingHop struct {
 // WHOIS Models
 type WhoisResult struct {
 	Domain      string            `json:"domain"`
+	SLD         string            `json:"sld,omitempty"` // Second-level domain (e.g., "net.tr" for dgn.net.tr)
 	Server      string            `json:"server,omitempty"`
 	Registrar   string            `json:"registrar,omitempty"`
 	CreatedAt   string            `json:"created_at,omitempty"`

@@ -164,6 +164,7 @@ export const TOOL_CATALOG: ToolMeta[] = [
   // Core
   { id: 'dashboard', label: 'Dashboard', description: 'Overview & analytics', path: '/', category: 'core', keywords: ['home', 'overview'] },
   { id: 'quick-scan', label: 'Quick Scan', description: 'Run 4 essential checks in parallel', path: '/quick-scan', category: 'core', keywords: ['fast', 'instant'] },
+  { id: 'recon', label: 'Reconnaissance', description: 'Comprehensive domain analysis — all tools in parallel', path: '/recon', category: 'core', keywords: ['full', 'scan', 'recon', 'all'] },
 
   // Security
   { id: 'blacklist', label: 'Blacklist Check', description: 'Check IP against 20+ DNSBL lists', path: '/blacklist', category: 'security', keywords: ['dnsbl', 'rbl', 'spam'] },
