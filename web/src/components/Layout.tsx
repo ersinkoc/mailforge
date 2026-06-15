@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Outlet, NavLink, useLocation, useNavigate, Link } from 'react-router-dom'
 import {
   LayoutDashboard, Globe, ShieldAlert, FileText, KeyRound,
@@ -404,6 +404,11 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { alerts } = useScanResults()
 
+  // Stabilize close handlers to prevent re-renders
+  const handlePaletteClose = useCallback(() => setPaletteOpen(false), [])
+  const handleHistoryClose = useCallback(() => setHistoryOpen(false), [])
+  const handleAlertsClose = useCallback(() => setAlertsOpen(false), [])
+
   // Global keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -454,7 +459,7 @@ export default function Layout() {
     return () => document.removeEventListener('keydown', handler)
   }, [navigate, paletteOpen, historyOpen, alertsOpen])
 
-  useEffect(() => { setSidebarOpen(false) }, [location.pathname])
+  useEffect(() => { setSidebarOpen(false) }, [location.pathname, setSidebarOpen])
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -527,9 +532,9 @@ export default function Layout() {
         </div>
       </main>
 
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-      <HistoryPanel open={historyOpen} onClose={() => setHistoryOpen(false)} />
-      <AlertsPanel open={alertsOpen} onClose={() => setAlertsOpen(false)} />
+      <CommandPalette open={paletteOpen} onClose={handlePaletteClose} />
+      <HistoryPanel open={historyOpen} onClose={handleHistoryClose} />
+      <AlertsPanel open={alertsOpen} onClose={handleAlertsClose} />
     </div>
   )
 }

@@ -7,14 +7,14 @@ import (
 
 // ReconResult holds the complete reconnaissance results for a domain
 type ReconResult struct {
-	Domain         string                  `json:"domain"`
-	Timestamp      string                  `json:"timestamp"`
-	TotalDuration  int64                   `json:"total_duration_ms"`
-	Summary        ReconSummary            `json:"summary"`
+	Domain         string                `json:"domain"`
+	Timestamp      string                `json:"timestamp"`
+	TotalDuration  int64                 `json:"total_duration_ms"`
+	Summary        ReconSummary          `json:"summary"`
 	Whois          WhoisResult           `json:"whois,omitempty"`
 	DNS            DNSLookupResult       `json:"dns,omitempty"`
 	MX             MXLookupResult        `json:"mx,omitempty"`
-	SPF            SPFResult              `json:"spf,omitempty"`
+	SPF            SPFResult             `json:"spf,omitempty"`
 	DKIM           DKIMResult            `json:"dkim,omitempty"`
 	DMARC          DMARCResult           `json:"dmarc,omitempty"`
 	DNSSEC         DNSSECResult          `json:"dnssec,omitempty"`
@@ -24,7 +24,7 @@ type ReconResult struct {
 	GeoIP          IPGeoResult           `json:"geoip,omitempty"`
 	Blacklist      BlacklistResult       `json:"blacklist,omitempty"`
 	Deliverability DeliverabilityResult  `json:"deliverability,omitempty"`
-	EmailValidate  EmailValidationResult  `json:"email_validate,omitempty"`
+	EmailValidate  EmailValidationResult `json:"email_validate,omitempty"`
 	Errors         []ReconError          `json:"errors,omitempty"`
 }
 
@@ -154,7 +154,7 @@ func RunReconAsync(domain string, progress func(phase string, percent int)) *Rec
 	}
 
 	phases := []struct {
-		name   string
+		name    string
 		percent int
 	}{
 		{"WHOIS Lookup", 10},

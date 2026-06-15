@@ -441,7 +441,7 @@ func ParsePublicSuffix(input string) PublicSuffixResult {
 		"com.br": true, "net.br": true, "org.br": true, "edu.br": true,
 		"com.cn": true, "net.cn": true, "org.cn": true,
 		"co.jp": true, "or.jp": true,
-		"co.kr": true,
+		"co.kr":  true,
 		"com.sg": true, "edu.sg": true,
 		"com.hk": true, "net.hk": true,
 		"com.tw": true, "net.tw": true,

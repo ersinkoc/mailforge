@@ -60,6 +60,37 @@ interface BatchResponse { data: unknown[]; count: number }
 interface MonitorEntry { id?: string; name: string; type: string; tool: string; value: string; interval: number }
 interface MonitorsResponse { monitors: MonitorEntry[] }
 
+// Recon response - comprehensive domain reconnaissance
+interface ReconResult {
+  domain: string
+  timestamp: string
+  total_duration_ms: number
+  summary: {
+    domain_age: string
+    domain_expires: string
+    mail_provider: string
+    security_score: string
+    issues_found: number
+    warnings: number
+  }
+  whois?: unknown
+  dns?: unknown
+  mx?: unknown
+  spf?: unknown
+  dkim?: unknown
+  dmarc?: unknown
+  dnssec?: unknown
+  subdomains?: unknown
+  port_scan?: unknown
+  tls?: unknown
+  geoip?: unknown
+  blacklist?: unknown
+  deliverability?: unknown
+  email_validate?: unknown
+  errors?: Array<{ tool: string; error: string; phase: string }>
+}
+interface ReconResponse { data: ReconResult }
+
 export const api = {
   // ── Health & meta ─────────────────────────────
   health: () => request<HealthResponse>('/health'),
@@ -88,6 +119,8 @@ export const api = {
     request<WhoisResponse>(`/whois/${domain}${refresh ? '?refresh=true' : ''}`),
   whoisStats: () => request<WhoisStatsResponse>('/whois'),
   super: (input: string) => request<SuperResponse>(`/super/${input}`),
+  recon: (domain: string, light = false) =>
+    request<ReconResponse>(`/recon/${domain}${light ? '?light=true' : ''}`),
 
   // ── New v2 tools ──────────────────────────────
   email: (addr: string) => request<EmailResponse>(`/email/${addr}`),

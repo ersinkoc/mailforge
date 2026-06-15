@@ -271,6 +271,7 @@ type PublicSuffixResult struct {
 	SLD          string `json:"sld"`
 	Subdomain    string `json:"subdomain,omitempty"`
 	Registrable  string `json:"registrable"`
+	CompoundTLD  bool   `json:"compound_tld"`
 	IsKnownTLD   bool   `json:"is_known_tld"`
 	IsPrivateTLD bool   `json:"is_private_tld"`
 	Duration     int64  `json:"duration_ms"`

@@ -34,6 +34,7 @@ import Batch from './pages/Batch'
 import Monitor from './pages/Monitor'
 import APIDocs from './pages/APIDocs'
 import Settings from './pages/Settings'
+import Recon from './pages/Recon'
 
 export default function App() {
   return (
@@ -78,6 +79,7 @@ export default function App() {
                         <Route path="/batch" element={<Batch />} />
                         <Route path="/monitor" element={<Monitor />} />
                         <Route path="/docs" element={<APIDocs />} />
+                        <Route path="/recon" element={<Recon />} />
                         <Route path="/settings" element={<Settings />} />
                       </Route>
                     </Routes>

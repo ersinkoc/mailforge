@@ -50,7 +50,7 @@ func TestRootEndpoint(t *testing.T) {
 		if r.URL.Path == "/api/" {
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"service":     "MailForge API",
-				"version": "1.0.0",
+				"version":     "1.0.0",
 				"description": "Comprehensive email infrastructure diagnostic suite",
 			})
 			return
