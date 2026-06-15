@@ -636,15 +636,40 @@ func getWhoisServer(domain string) string {
 	return "whois.iana.org"
 }
 
-// parseWhoisField extracts a field value from WHOIS response lines
+// parseWhoisField extracts a field value from WHOIS response lines.
+// Handles both standard WHOIS formats and TRABIS (.tr) format where
+// field names are padded with dots: "Created on..............: 2007-Jan-08."
 func parseWhoisField(line string, prefixes ...string) string {
-	lineLower := strings.ToLower(strings.TrimSpace(line))
+	lineTrimmed := strings.TrimSpace(line)
+	lineLower := strings.ToLower(lineTrimmed)
+
 	for _, prefix := range prefixes {
-		if strings.HasPrefix(lineLower, prefix) {
-			// Split on first colon, take rest
-			idx := strings.Index(line, ":")
+		prefixLower := strings.ToLower(prefix)
+
+		// Standard format: "Created on: value" or "created on: value"
+		if strings.HasPrefix(lineLower, prefixLower) {
+			idx := strings.Index(lineTrimmed, ":")
 			if idx >= 0 {
-				return strings.TrimSpace(line[idx+1:])
+				val := strings.TrimSpace(lineTrimmed[idx+1:])
+				// TRABIS format: values end with trailing period (e.g., "2007-Jan-08.")
+				val = strings.TrimRight(val, ".")
+				return val
+			}
+		}
+
+		// TRABIS dot-padded format: "Created on..............: value"
+		// The prefix in the raw data ends with "." before the colon (e.g., "Created on..............:")
+		// Check if line starts with prefix followed by dots and colon
+		// e.g., prefix="Created on." matches "Created on..............: 2007-Jan-08."
+		dotPaddedPrefix := prefixLower
+		if strings.HasPrefix(lineLower, dotPaddedPrefix) {
+			// Find the colon that follows the dot-padding
+			idx := strings.Index(lineTrimmed, ":")
+			if idx >= 0 {
+				val := strings.TrimSpace(lineTrimmed[idx+1:])
+				// TRABIS format: values end with trailing period (e.g., "2007-Jan-08.")
+				val = strings.TrimRight(val, ".")
+				return val
 			}
 		}
 	}
@@ -739,22 +764,22 @@ func CheckWhois(domain string, refresh bool) WhoisResult {
 			}
 		}
 
-		// Creation date — handle various formats + Turkish
-		if v := parseWhoisField(lineTrimmed, "creation date:", "created:", "created on:", "registration time:", "registration date:", "kayit tarihi:", "domain creation date:", "registered:"); v != "" {
+		// Creation date — handle various formats + Turkish + TRABIS dot-padded
+		if v := parseWhoisField(lineTrimmed, "creation date:", "created:", "created on:", "created on.", "registration time:", "registration date:", "kayit tarihi:", "domain creation date:", "registered:"); v != "" {
 			if result.CreatedAt == "" {
 				result.CreatedAt = v
 			}
 		}
 
-		// Updated date + Turkish
-		if v := parseWhoisField(lineTrimmed, "updated date:", "last modified:", "last updated:", "last-modified:", "changed:", "degisiklik tarihi:", "modification date:", "son guncelleme:"); v != "" {
+		// Updated date + Turkish + TRABIS dot-padded
+		if v := parseWhoisField(lineTrimmed, "updated date:", "last modified:", "last updated:", "last-modified:", "changed:", "degisiklik tarihi:", "modification date:", "son guncelleme:", "last update time:", "last update time."); v != "" {
 			if result.UpdatedAt == "" {
 				result.UpdatedAt = v
 			}
 		}
 
-		// Expiry date — handle various formats + Turkish
-		if v := parseWhoisField(lineTrimmed, "registry expiry date:", "expiry date:", "expiration date:", "expires:", "paid-till:", "validity:", "bitis tarihi:", "son kullanma tarihi:", "domain expiry date:", "paid-until:"); v != "" {
+		// Expiry date — handle various formats + Turkish + TRABIS dot-padded
+		if v := parseWhoisField(lineTrimmed, "registry expiry date:", "expiry date:", "expiration date:", "expires:", "expires on.", "paid-till:", "validity:", "bitis tarihi:", "son kullanma tarihi:", "domain expiry date:", "paid-until:"); v != "" {
 			if result.ExpiresAt == "" {
 				result.ExpiresAt = v
 			}

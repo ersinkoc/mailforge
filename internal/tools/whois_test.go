@@ -14,8 +14,13 @@ func TestExtractTLD_Simple(t *testing.T) {
 		{"example.org", "org"},
 		{"test.net", "net"},
 		{"example.de", "de"},
+		// Turkish second-level domains: TLD is "tr"
+		{"example.com.tr", "tr"},
+		{"example.net.tr", "tr"},
+		{"dgn.net.tr", "tr"},
+		{"example.org.tr", "tr"},
+		// Other compound TLDs: return full compound suffix
 		{"example.co.uk", "co.uk"},
-		{"example.com.tr", "com.tr"},
 		{"example.co.jp", "co.jp"},
 		{"example.com.au", "com.au"},
 		{"example.org.uk", "org.uk"},
@@ -63,6 +68,36 @@ func TestExtractTLD_CaseInsensitive(t *testing.T) {
 	}
 }
 
+func TestExtractSLD(t *testing.T) {
+	tests := []struct {
+		domain   string
+		expected string
+	}{
+		// Turkish second-level domains
+		{"dgn.net.tr", "net.tr"},
+		{"example.com.tr", "com.tr"},
+		{"example.org.tr", "org.tr"},
+		{"example.gov.tr", "gov.tr"},
+		// Non-Turkish compound TLDs return empty
+		{"example.co.uk", ""},
+		{"example.co.jp", ""},
+		{"example.com.au", ""},
+		// Simple TLDs return empty
+		{"google.com", ""},
+		{"example.org", ""},
+		{"test.net", ""},
+		// Single label
+		{"localhost", ""},
+	}
+
+	for _, tt := range tests {
+		result := extractSLD(tt.domain)
+		if result != tt.expected {
+			t.Errorf("extractSLD(%q) = %q, want %q", tt.domain, result, tt.expected)
+		}
+	}
+}
+
 func TestParseWhoisField(t *testing.T) {
 	tests := []struct {
 		line     string
@@ -77,6 +112,19 @@ func TestParseWhoisField(t *testing.T) {
 		{"nserver: ns1.example.com", []string{"name server:", "nserver:"}, "ns1.example.com"},
 		{"Some Random: Value", []string{"registrar:"}, ""}, // No match
 		{"", []string{"registrar:"}, ""},                   // Empty line
+		// TRABIS dot-padded format
+		{"Created on..............: 2007-Jan-08.", []string{"created on.", "created on:"}, "2007-Jan-08"},
+		{"Expires on..............: 2027-Jan-07.", []string{"expires on.", "expires on:"}, "2027-Jan-07"},
+		{"Last Update Time: 2026-06-15T10:46:52+03:00", []string{"last update time:", "last update time."}, "2026-06-15T10:46:52+03:00"},
+		// TRABIS trailing period in value
+		{"Created on..............: 2007-Jan-08.", []string{"created on."}, "2007-Jan-08"},
+		{"Expires on..............: 2027-Jan-07.", []string{"expires on."}, "2027-Jan-07"},
+		// Standard formats should still work
+		{"Created on: 2020-01-15", []string{"created on:"}, "2020-01-15"},
+		{"Expires on: 2027-01-07", []string{"expires on:"}, "2027-01-07"},
+		{"Expiration Date: 2027-01-07", []string{"expiration date:"}, "2027-01-07"},
+		// Mixed case TRABIS
+		{"Created on..............: 2007-Jan-08.", []string{"Created on."}, "2007-Jan-08"},
 	}
 
 	for _, tt := range tests {
@@ -104,7 +152,7 @@ func TestGetWhoisServer_KnownTLDs(t *testing.T) {
 		{"example.org", "whois.pir.org"},
 		{"test.de", "whois.denic.de"},
 		{"example.uk", "whois.nic.uk"},
-		{"test.tr", "whois.nic.tr"},
+		{"test.tr", "whois.trabis.gov.tr"},
 	}
 
 	for _, tt := range tests {
