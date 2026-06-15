@@ -3,8 +3,10 @@ package tools
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"regexp"
 	"strings"
 	"sync"
@@ -575,6 +577,192 @@ var knownWhoisServers = map[string]string{
 	"biz.id": "whois.id",
 }
 
+// Known RDAP servers for TLDs that use RDAP instead of WHOIS.
+// RDAP (Registration Data Access Protocol) is the modern replacement for WHOIS.
+// Format: base URL (without trailing slash) for RDAP queries.
+var knownRdapServers = map[string]string{
+	// Google-operated TLDs (.dev, .app, .chrome, etc.)
+	"dev":     "https://pubapi.registry.google/rdap",
+	"app":     "https://pubapi.registry.google/rdap",
+	"chrome":  "https://pubapi.registry.google/rdap",
+	"android": "https://pubapi.registry.google/rdap",
+	"ads":     "https://pubapi.registry.google/rdap",
+	"play":    "https://pubapi.registry.google/rdap",
+	"search":  "https://pubapi.registry.google/rdap",
+	"how":     "https://pubapi.registry.google/rdap",
+	"page":    "https://pubapi.registry.google/rdap",
+	"php":     "https://pubapi.registry.google/rdap",
+	"plus":    "https://pubapi.registry.google/rdap",
+	"voyage":  "https://pubapi.registry.google/rdap",
+	"moto":    "https://pubapi.registry.google/rdap",
+	"here":    "https://pubapi.registry.google/rdap",
+	"new":     "https://pubapi.registry.google/rdap",
+
+	// Other notable RDAP-enabled TLDs
+	"xyz":  "https://rdap.nic.xyz",
+	"wiki": "https://rdap.nic.wiki",
+	"ink":  "https://rdap.nic.ink",
+
+	// NeuStar/Identity Digital TLDs
+	"buzz":   "https://rdap.registrar.buzz",
+	"io":     "https://rdap.nic.io",      // .io also has RDAP
+	"co":     "https://rdap.nic.co",      // .co also has RDAP
+	"ai":     "https://rdap.nic.ai",      // .ai has RDAP
+	"sh":     "https://rdap.nic.sh",      // .sh has RDAP
+	"us":     "https://rdap.nic.us",     // .us has RDAP
+
+	// CentralNic TLDs
+	"click":  "https://rdap.centralnic.com/click",
+	"link":   "https://rdap.centralnic.com/link",
+	"host":   "https://rdap.centralnic.com/host",
+	"website": "https://rdap.centralnic.com/website",
+	"space":  "https://rdap.centralnic.com/space",
+	"online": "https://rdap.centralnic.com/online",
+	"site":   "https://rdap.centralnic.com/site",
+	"tech":   "https://rdap.centralnic.com/tech",
+}
+
+// getRdapServer returns the RDAP server URL for a TLD if known
+func getRdapServer(tld string) string {
+	if server, ok := knownRdapServers[tld]; ok {
+		return server
+	}
+	return ""
+}
+
+// queryRdap queries an RDAP server using HTTP and returns the JSON response
+func queryRdap(ctx context.Context, baseURL, domain string) (map[string]interface{}, error) {
+	// Build RDAP URL: baseURL/domain
+	url := baseURL + "/" + domain
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create RDAP request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/rdap+json")
+	req.Header.Set("User-Agent", "MailForge/1.0 WHOIS-RDAP Client")
+
+	client := &http.Client{
+		Timeout: 15 * time.Second,
+		Transport: &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout: 10 * time.Second,
+			}).DialContext,
+		},
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("RDAP request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("domain not found")
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("RDAP server returned status %d", resp.StatusCode)
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to parse RDAP response: %w", err)
+	}
+
+	return result, nil
+}
+
+// parseRdapResponse converts an RDAP JSON response to WhoisResult format
+func parseRdapResponse(domain string, rdap map[string]interface{}) WhoisResult {
+	result := WhoisResult{
+		Domain:      domain,
+		SLD:         extractSLD(domain),
+		NameServers: []string{},
+		Details:     make(map[string]string),
+	}
+
+	// Parse RDAP JSON structure and convert to WHOIS-style fields
+
+	// Handle RDAP "nameservers" array
+	if ns, ok := rdap["nameservers"].([]interface{}); ok {
+		for _, nsEntry := range ns {
+			if nsObj, ok := nsEntry.(map[string]interface{}); ok {
+				if ldhName, ok := nsObj["ldhName"].(string); ok {
+					nsName := strings.ToLower(strings.TrimSuffix(ldhName, "."))
+					result.NameServers = append(result.NameServers, nsName)
+				}
+			}
+		}
+	}
+
+	// Handle RDAP events - contains creation, expiry, update dates
+	if events, ok := rdap["events"].([]interface{}); ok {
+		for _, event := range events {
+			if eventObj, ok := event.(map[string]interface{}); ok {
+				eventAction, _ := eventObj["eventAction"].(string)
+				eventDate, _ := eventObj["eventDate"].(string)
+
+				switch eventAction {
+				case "registration":
+					if result.CreatedAt == "" {
+						result.CreatedAt = eventDate
+					}
+				case "expiration":
+					if result.ExpiresAt == "" {
+						result.ExpiresAt = eventDate
+					}
+				case "last changed":
+					if result.UpdatedAt == "" {
+						result.UpdatedAt = eventDate
+					}
+				}
+			}
+		}
+	}
+
+	// Handle registrar/ponsor organization
+	if rdapEnt, ok := rdap["entities"].([]interface{}); ok {
+		for _, ent := range rdapEnt {
+			if entObj, ok := ent.(map[string]interface{}); ok {
+				roles, _ := entObj["roles"].([]interface{})
+				for _, role := range roles {
+					if roleStr, ok := role.(string); ok && roleStr == "registrar" {
+						if vcard, ok := entObj["vcardArray"].([]interface{}); ok {
+							for _, vcardEntry := range vcard {
+								if arr, ok := vcardEntry.([]interface{}); ok && len(arr) >= 4 {
+									if fn, ok := arr[3].(string); ok {
+										result.Registrar = fn
+										break
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Handle status
+	if status, ok := rdap["status"].([]interface{}); ok {
+		statuses := make([]string, 0, len(status))
+		for _, s := range status {
+			if str, ok := s.(string); ok {
+				statuses = append(statuses, str)
+			}
+		}
+		result.Details["Domain Status"] = strings.Join(statuses, ", ")
+	}
+
+	// Store RDAP data in raw for debugging
+	rdapJSON, _ := json.MarshalIndent(rdap, "", "  ")
+	result.Details["rdap"] = string(rdapJSON)
+
+	return result
+}
+
 // queryWhois connects to a WHOIS server and returns the raw response
 func queryWhois(ctx context.Context, server, query string) (string, error) {
 	dialer := &net.Dialer{}
@@ -796,7 +984,7 @@ func CheckWhois(domain string, refresh bool) WhoisResult {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
 	// Step 1: Find the correct WHOIS server for this domain's TLD
@@ -805,26 +993,43 @@ func CheckWhois(domain string, refresh bool) WhoisResult {
 
 	// Step 2: Query the TLD-specific WHOIS server
 	response, err := queryWhois(ctx, server, domain)
+	whoisSucceeded := err == nil && !isIanaTLDRecord(response, domain)
+
+	// Step 3: If WHOIS failed or returned TLD record, try RDAP if available
+	tld := strings.ToLower(extractTLD(domain))
+	rdapServer := getRdapServer(tld)
+
+	if !whoisSucceeded && rdapServer != "" {
+		// WHOIS failed, try RDAP
+		result.Server = rdapServer + " (RDAP)"
+
+		if rdapData, rdapErr := queryRdap(ctx, rdapServer, domain); rdapErr == nil {
+			// RDAP succeeded, parse it
+			rdapResult := parseRdapResponse(domain, rdapData)
+			rdapResult.Duration = time.Since(start).Milliseconds()
+			rdapResult.Server = result.Server
+			if rdapResult.Error == "" {
+				setWhoisCache(domain, rdapResult)
+				return rdapResult
+			}
+		}
+	}
+
+	// If we get here, either WHOIS succeeded or RDAP failed
 	if err != nil {
-		// Don't fall back to IANA for domain queries - whois.iana.org
-		// returns TLD records when queried with a domain name, not domain records.
-		// This is expected behavior for TLD registries that don't support
-		// direct domain queries.
 		result.Error = fmt.Sprintf("WHOIS lookup failed for %s (server: %s): %v", domain, server, err)
 		result.Duration = time.Since(start).Milliseconds()
 		return result
 	}
 
-	// Step 3: Detect if we got a TLD record instead of a domain record
-	// IANA returns TLD records when queried with a domain instead of a TLD.
-	// Common indicators: no domain name in response, contains "TLD parent" or "registry" info.
+	// Step 4: Detect if we got a TLD record instead of a domain record
 	if isIanaTLDRecord(response, domain) {
 		result.Error = fmt.Sprintf("WHOIS server %s did not return domain %s (got TLD record instead)", server, domain)
 		result.Duration = time.Since(start).Milliseconds()
 		return result
 	}
 
-	// Step 4: Parse the response
+	// Step 5: Parse the WHOIS response
 	for _, line := range strings.Split(response, "\n") {
 		lineTrimmed := strings.TrimSpace(line)
 		if lineTrimmed == "" || strings.HasPrefix(lineTrimmed, "%") || strings.HasPrefix(lineTrimmed, "#") || strings.HasPrefix(lineTrimmed, "--") {
