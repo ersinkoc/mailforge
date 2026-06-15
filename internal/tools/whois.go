@@ -614,34 +614,46 @@ func getWhoisServer(domain string) string {
 	// Fallback: query IANA to discover the WHOIS server
 	// IMPORTANT: We query with the TLD only, NOT the full domain
 	// whois.iana.org returns TLD records when queried with a TLD,
-	// which contain a "refer:" line pointing to the actual WHOIS server
+	// which contain a "whois:" line pointing to the actual WHOIS server
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 
 	response, err := queryWhois(ctx, "whois.iana.org", tld)
 	if err != nil {
-		// Ultimate fallback - but whois.iana.org doesn't handle domain queries
+		// Ultimate fallback
 		return "whois.iana.org"
 	}
 
-	// Parse "refer:        whois.example.com" from IANA response
+	// IANA returns responses in two formats:
+	// 1. New format: "whois:        whois.example.com"
+	// 2. Old format: "refer:       whois.example.com"
 	for _, line := range strings.Split(response, "\n") {
 		lineLower := strings.ToLower(line)
+		line = strings.TrimSpace(line)
+
+		// Try "whois:" format first (most common now)
+		if strings.HasPrefix(lineLower, "whois:") {
+			server := strings.TrimPrefix(line, "whois:")
+			server = strings.TrimPrefix(server, "Whois:")
+			server = strings.TrimPrefix(server, "WHOIS:")
+			server = strings.TrimSpace(server)
+			if server != "" && server != "whois.iana.org" {
+				return server
+			}
+		}
+
+		// Also try "refer:" format (older IANA format)
 		if strings.HasPrefix(lineLower, "refer:") {
-			// Extract everything after "refer:" (case-insensitive)
-			afterRefer := line[len("refer:"):]
-			server := strings.TrimSpace(afterRefer)
-			// Also handle "Refer:" variant
-			afterRefer = strings.TrimPrefix(line, "Refer:")
-			afterRefer = strings.TrimPrefix(afterRefer, "refer:")
-			server = strings.TrimSpace(afterRefer)
+			server := strings.TrimPrefix(line, "refer:")
+			server = strings.TrimPrefix(server, "Refer:")
+			server = strings.TrimSpace(server)
 			if server != "" && server != "whois.iana.org" {
 				return server
 			}
 		}
 	}
 
-	// If no valid referral found, return IANA (but domain queries will get TLD records)
+	// If no valid referral found, return IANA
 	return "whois.iana.org"
 }
 
