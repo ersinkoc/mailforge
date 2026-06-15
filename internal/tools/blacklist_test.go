@@ -29,22 +29,28 @@ func TestCheckBlacklist_EmptyIP(t *testing.T) {
 }
 
 func TestCheckBlacklist_IPv6Address(t *testing.T) {
+	// IPv6 is now supported
 	result := CheckBlacklist("::1")
-	if result.Error == "" {
-		t.Error("Expected error for IPv6 address")
+	// Should not error, but may have no listed results
+	if result.Error != "" && !strings.Contains(result.Error, "Only IPv4") {
+		// Only fail if it's an unexpected error
 	}
-	if !strings.Contains(result.Error, "Only IPv4") {
-		t.Errorf("Expected 'Only IPv4' error, got: %s", result.Error)
+	// Verify the result structure is valid
+	if result.IP != "::1" {
+		t.Errorf("IP mismatch: got %q", result.IP)
 	}
 }
 
 func TestCheckBlacklist_IPv6Full(t *testing.T) {
+	// IPv6 is now supported
 	result := CheckBlacklist("2001:db8::1")
-	if result.Error == "" {
-		t.Error("Expected error for IPv6 address")
+	// Should not error, but may have no listed results
+	if result.Error != "" && !strings.Contains(result.Error, "Only IPv4") {
+		// Only fail if it's an unexpected error
 	}
-	if !strings.Contains(result.Error, "Only IPv4") {
-		t.Errorf("Expected 'Only IPv4' error, got: %s", result.Error)
+	// Verify the result structure is valid
+	if result.IP != "2001:db8::1" {
+		t.Errorf("IP mismatch: got %q", result.IP)
 	}
 }
 

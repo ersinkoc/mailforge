@@ -128,8 +128,20 @@ func deriveCountryFromIP(ip net.IP) string {
 		firstOctet := int(ip4[0])
 		secondOctet := int(ip4[1])
 
-		// US allocations
+		// US allocations (3-4, 6-4, 8-8, 12-15, etc.)
 		if firstOctet >= 3 && firstOctet <= 4 {
+			return "United States"
+		}
+		if firstOctet >= 6 && firstOctet <= 7 {
+			return "United States"
+		}
+		if firstOctet == 8 {
+			return "United States" // Google (8.8.8.8)
+		}
+		if firstOctet >= 12 && firstOctet <= 15 {
+			return "United States"
+		}
+		if firstOctet >= 23 && firstOctet <= 24 {
 			return "United States"
 		}
 		// European ranges
