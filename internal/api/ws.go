@@ -4,6 +4,7 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -61,8 +62,15 @@ func UpgradeWebSocket(w http.ResponseWriter, r *http.Request) (*wsConn, error) {
 		return nil, err
 	}
 
+	// Per RFC 6455 §4.2.1, Sec-WebSocket-Key is a base64-encoded 16-byte nonce.
+	// It must be base64-decoded before being hashed with the GUID.
+	decodedKey, err := base64.StdEncoding.DecodeString(key)
+	if err != nil {
+		conn.Close()
+		return nil, errors.New("invalid Sec-WebSocket-Key")
+	}
 	h := sha1.New()
-	h.Write([]byte(key + wsGUID))
+	h.Write(append(decodedKey, wsGUID...))
 	accept := base64.StdEncoding.EncodeToString(h.Sum(nil))
 
 	resp := "HTTP/1.1 101 Switching Protocols\r\n" +
@@ -152,7 +160,7 @@ func (w *wsConn) Close() error {
 	}
 	w.closed = true
 	// Best-effort close frame
-	w.netConn.Write([]byte{0x88, 0x00})
+	_, _ = w.netConn.Write([]byte{0x88, 0x00})
 	return w.netConn.Close()
 }
 
@@ -167,10 +175,12 @@ func HandleMonitorWS(w http.ResponseWriter, r *http.Request) {
 
 	// Send initial snapshot
 	monitors := ListMonitors()
-	_ = map[string]interface{}{
+	snapshot := map[string]interface{}{
 		"type":     "monitor_snapshot",
 		"monitors": monitors,
 	}
+	snapshotData, _ := json.Marshal(snapshot)
+	_ = conn.WriteText(snapshotData)
 
 	// Subscribe to monitor updates for broadcast
 	sub := SubscribeMonitor()

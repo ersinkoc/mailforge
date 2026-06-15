@@ -97,7 +97,9 @@ func attemptRelay(host string, port int, from, to string) (bool, error) {
 	}
 
 	// MAIL FROM
-	fmt.Fprintf(conn, "MAIL FROM:<%s>\r\n", from)
+	if _, err := fmt.Fprintf(conn, "MAIL FROM:<%s>\r\n", from); err != nil {
+		return false, fmt.Errorf("mail from write: %w", err)
+	}
 	line, err := reader.ReadString('\n')
 	if err != nil {
 		return false, fmt.Errorf("mail from: %w", err)
@@ -107,7 +109,9 @@ func attemptRelay(host string, port int, from, to string) (bool, error) {
 	}
 
 	// RCPT TO
-	fmt.Fprintf(conn, "RCPT TO:<%s>\r\n", to)
+	if _, err := fmt.Fprintf(conn, "RCPT TO:<%s>\r\n", to); err != nil {
+		return false, fmt.Errorf("rcpt to write: %w", err)
+	}
 	line, err = reader.ReadString('\n')
 	if err != nil {
 		return false, fmt.Errorf("rcpt to: %w", err)
@@ -115,7 +119,7 @@ func attemptRelay(host string, port int, from, to string) (bool, error) {
 	if strings.HasPrefix(line, "250") {
 		// Accepted — this is the definition of an open relay
 		fmt.Fprintf(conn, "QUIT\r\n")
-		return true, nil
+		return true, nil // QUIT write error is non-critical here
 	}
 
 	fmt.Fprintf(conn, "QUIT\r\n")
@@ -336,7 +340,12 @@ func SanitizeText(input string) SanitizeResult {
 	return result
 }
 
-// ParsePublicSuffix breaks a domain into TLD / SLD / subdomain
+// ParsePublicSuffix breaks a domain into TLD / SLD / subdomain.
+// It handles compound TLDs like .com.tr, .co.uk, .net.tr correctly.
+// For Turkish SLDs (.net.tr, .com.tr, etc.), it correctly identifies:
+// - TLD: "tr"
+// - SLD: the Turkish second-level domain (e.g., "net.tr", "com.tr")
+// - Subdomain: the registered domain part (e.g., "dgn" for "dgn.net.tr")
 func ParsePublicSuffix(input string) PublicSuffixResult {
 	start := time.Now()
 	result := PublicSuffixResult{Input: input}
@@ -352,26 +361,97 @@ func ParsePublicSuffix(input string) PublicSuffixResult {
 		cleaned = cleaned[:idx]
 	}
 	result.Input = cleaned
-	parts := strings.Split(cleaned, ".")
-	if len(parts) < 2 {
-		result.Error = "Invalid domain"
-		result.Duration = time.Since(start).Milliseconds()
-		return result
-	}
-	result.TLD = parts[len(parts)-1]
-	result.SLD = parts[len(parts)-2]
-	if len(parts) > 2 {
-		result.Subdomain = strings.Join(parts[:len(parts)-2], ".")
-	}
-	result.Registrable = result.SLD + "." + result.TLD
 
-	// Known TLDs
+	// Check for Turkish SLDs first (they're SLDs under .tr, not compound TLDs)
+	sld := extractSLD(cleaned)
+	if sld != "" {
+		// Turkish SLD: e.g. dgn.net.tr → tld="tr", sld="net.tr", subdomain="dgn"
+		result.TLD = "tr"
+		result.SLD = sld
+		result.CompoundTLD = true // Still compound for public suffix purposes
+		// Extract subdomain (what's before the SLD)
+		suffix := "." + sld
+		remainder := strings.TrimSuffix(cleaned, suffix)
+		if remainder != "" {
+			result.Subdomain = remainder
+		}
+		// Registrable = subdomain + SLD (e.g., "dgn.net.tr")
+		if result.Subdomain != "" {
+			result.Registrable = result.Subdomain + "." + sld
+		} else {
+			result.Registrable = sld
+		}
+	} else {
+		// Extract TLD using shared logic (handles other compound TLDs like .co.uk)
+		tld := extractTLD(cleaned)
+		result.TLD = tld
+		result.CompoundTLD = strings.Contains(tld, ".")
+
+		// Split on TLD boundary to get SLD and subdomain
+		if result.CompoundTLD {
+			// e.g. example.co.uk → subdomain="", sld="example", tld="co.uk"
+			suffix := "." + tld
+			remainder := strings.TrimSuffix(cleaned, suffix)
+			parts := strings.Split(remainder, ".")
+			if len(parts) >= 1 {
+				result.SLD = parts[len(parts)-1]
+				if len(parts) > 1 {
+					result.Subdomain = strings.Join(parts[:len(parts)-1], ".")
+				}
+			}
+		} else {
+			// Simple TLD: e.g. mail.example.com → subdomain="mail", sld="example", tld="com"
+			parts := strings.Split(cleaned, ".")
+			if len(parts) < 2 {
+				result.TLD = cleaned
+				result.SLD = ""
+				result.Registrable = cleaned
+				result.Duration = time.Since(start).Milliseconds()
+				return result
+			}
+			result.SLD = parts[len(parts)-2]
+			if len(parts) > 2 {
+				result.Subdomain = strings.Join(parts[:len(parts)-2], ".")
+			}
+		}
+
+		result.Registrable = result.SLD + "." + result.TLD
+	}
+
+	// Known TLDs — include both simple and compound TLDs
 	knownTLDs := map[string]bool{
-		"com": true, "net": true, "org": true, "io": true, "co": true, "ai": true,
+		// Simple gTLDs
+		"com": true, "net": true, "org": true, "io": true, "ai": true,
 		"dev": true, "app": true, "me": true, "info": true, "biz": true, "us": true,
 		"uk": true, "de": true, "fr": true, "jp": true, "cn": true, "ru": true,
 		"tv": true, "gg": true, "to": true, "xyz": true, "tech": true, "online": true,
 		"store": true, "site": true, "cloud": true, "email": true, "services": true,
+		"co": true, "au": true, "nz": true, "za": true, "in": true, "sg": true,
+		"hk": true, "tw": true, "kr": true, "br": true, "mx": true, "ar": true,
+		"cl": true, "ve": true, "pe": true, "ec": true, "cr": true, "ca": true,
+		"eu": true, "it": true, "es": true, "pt": true, "pl": true, "nl": true,
+		"se": true, "no": true, "fi": true, "dk": true, "at": true, "ch": true,
+		"be": true, "ie": true, "ro": true, "hu": true, "gr": true, "cz": true,
+		"tr": true,
+		// Compound TLDs
+		"com.tr": true, "net.tr": true, "org.tr": true, "edu.tr": true, "gov.tr": true,
+		"co.uk": true, "org.uk": true, "net.uk": true,
+		"com.au": true, "edu.au": true, "gov.au": true,
+		"co.nz": true, "net.nz": true,
+		"com.br": true, "net.br": true, "org.br": true, "edu.br": true,
+		"com.cn": true, "net.cn": true, "org.cn": true,
+		"co.jp": true, "or.jp": true,
+		"co.kr": true,
+		"com.sg": true, "edu.sg": true,
+		"com.hk": true, "net.hk": true,
+		"com.tw": true, "net.tw": true,
+		"com.mx": true, "org.mx": true,
+		"co.za": true, "net.za": true,
+		"co.in": true, "net.in": true, "org.in": true,
+		"com.ar": true, "net.ar": true,
+		"com.cl": true, "net.cl": true,
+		"co.th": true, "net.th": true,
+		"com.co": true, "net.co": true, "org.co": true,
 	}
 	result.IsKnownTLD = knownTLDs[result.TLD]
 

@@ -89,7 +89,13 @@ func TestSMTP(host string, port int) SMTPTestResult {
 			tlsConn := tls.Client(conn, &tls.Config{
 				ServerName: host,
 			})
-			if err := tlsConn.Handshake(); err == nil {
+			if err := tlsConn.Handshake(); err != nil {
+				// Handshake failed — close the underlying connection
+				conn.Close()
+				result.Error = fmt.Sprintf("TLS handshake failed: %v", err)
+				result.Duration = time.Since(start).Milliseconds()
+				return result
+			} else {
 				result.TLSVersion = tls.VersionName(tlsConn.ConnectionState().Version)
 				cert := tlsConn.ConnectionState().PeerCertificates
 				if len(cert) > 0 {
@@ -100,6 +106,8 @@ func TestSMTP(host string, port int) SMTPTestResult {
 						Serial:   cert[0].SerialNumber.String(),
 					}
 				}
+				// TLS connection established — close via tlsConn to flush TLS state
+				tlsConn.Close()
 			}
 		}
 	}

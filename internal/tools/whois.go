@@ -40,13 +40,20 @@ func getFromWhoisCache(domain string) *WhoisResult {
 	key := getWhoisCacheKey(domain)
 	whoisCache.RLock()
 	entry, ok := whoisCache.entries[key]
+	// Copy needed fields before releasing the lock to prevent race with setWhoisCache
+	var result WhoisResult
+	var cachedAt time.Time
+	if ok {
+		result = entry.result
+		cachedAt = entry.cachedAt
+	}
 	whoisCache.RUnlock()
-	if !ok || time.Since(entry.cachedAt) > whoisCacheTTL {
+
+	if !ok || time.Since(cachedAt) > whoisCacheTTL {
 		atomic.AddUint64(&whoisCacheMisses, 1)
 		return nil
 	}
 	atomic.AddUint64(&whoisCacheHits, 1)
-	result := entry.result
 	result.Cached = true
 	return &result
 }
@@ -307,26 +314,26 @@ var knownWhoisServers = map[string]string{
 	"kp": "whois.kptc.kp",
 	"mn": "whois.nic.mn",
 
-	// Turkish second-level domains
-	"tr":        "whois.nic.tr",
-	"com.tr":    "whois.nic.tr",
-	"org.tr":    "whois.nic.tr",
-	"net.tr":    "whois.nic.tr",
-	"web.tr":    "whois.nic.tr",
-	"gen.tr":    "whois.nic.tr",
-	"edu.tr":    "whois.nic.tr",
-	"gov.tr":    "whois.nic.tr",
-	"mil.tr":    "whois.nic.tr",
-	"bir.tr":    "whois.nic.tr",
-	"cop.tr":    "whois.nic.tr",
-	"dr.tr":     "whois.nic.tr",
-	"pol.tr":    "whois.nic.tr",
-	"bel.tr":    "whois.nic.tr",
-	"tsk.tr":    "whois.nic.tr",
-	"k12.tr":    "whois.nic.tr",
-	"info.tr":   "whois.nic.tr",
-	"nc.tr":     "whois.nic.tr",
-	"gov.nc.tr": "whois.nic.tr",
+	// Turkish second-level domains (TLD is .tr)
+	"tr":        "whois.trabis.gov.tr",
+	"com.tr":    "whois.trabis.gov.tr",
+	"org.tr":    "whois.trabis.gov.tr",
+	"net.tr":    "whois.trabis.gov.tr",
+	"web.tr":    "whois.trabis.gov.tr",
+	"gen.tr":    "whois.trabis.gov.tr",
+	"edu.tr":    "whois.trabis.gov.tr",
+	"gov.tr":    "whois.trabis.gov.tr",
+	"mil.tr":    "whois.trabis.gov.tr",
+	"bir.tr":    "whois.trabis.gov.tr",
+	"cop.tr":    "whois.trabis.gov.tr",
+	"dr.tr":     "whois.trabis.gov.tr",
+	"pol.tr":    "whois.trabis.gov.tr",
+	"bel.tr":    "whois.trabis.gov.tr",
+	"tsk.tr":    "whois.trabis.gov.tr",
+	"k12.tr":    "whois.trabis.gov.tr",
+	"info.tr":   "whois.trabis.gov.tr",
+	"nc.tr":     "whois.trabis.gov.tr",
+	"gov.nc.tr": "whois.trabis.gov.tr",
 
 	// UK second-level domains
 	"co.uk":  "whois.nic.uk",
@@ -629,41 +636,6 @@ func getWhoisServer(domain string) string {
 	return "whois.iana.org"
 }
 
-// extractTLD gets the TLD from a domain, handling compound TLDs
-// The compound TLDs list is derived from knownWhoisServers keys that contain a dot
-var compoundTLDs []string
-
-func init() {
-	// Build compoundTLDs from knownWhoisServers keys dynamically
-	seen := make(map[string]bool)
-	for tld := range knownWhoisServers {
-		if strings.Contains(tld, ".") && !seen[tld] {
-			compoundTLDs = append(compoundTLDs, tld)
-			seen[tld] = true
-		}
-	}
-}
-
-func extractTLD(domain string) string {
-	domain = strings.ToLower(strings.TrimSpace(domain))
-	domain = strings.TrimSuffix(domain, ".")
-
-	// Check compound TLDs first
-	for _, ctld := range compoundTLDs {
-		if strings.HasSuffix(domain, "."+ctld) {
-			return ctld
-		}
-	}
-
-	// Simple TLD: take everything after the last dot
-	parts := strings.Split(domain, ".")
-	if len(parts) >= 2 {
-		return parts[len(parts)-1]
-	}
-
-	return domain
-}
-
 // parseWhoisField extracts a field value from WHOIS response lines
 func parseWhoisField(line string, prefixes ...string) string {
 	lineLower := strings.ToLower(strings.TrimSpace(line))
@@ -685,9 +657,8 @@ func WhoisCacheStats() map[string]interface{} {
 	size := len(whoisCache.entries)
 	var totalAge time.Duration
 	var count int
-	now := time.Now()
 	for _, entry := range whoisCache.entries {
-		totalAge += now.Sub(entry.cachedAt)
+		totalAge += time.Since(entry.cachedAt)
 		count++
 	}
 	whoisCache.RUnlock()
@@ -721,6 +692,7 @@ func CheckWhois(domain string, refresh bool) WhoisResult {
 	start := time.Now()
 	result := WhoisResult{
 		Domain:      domain,
+		SLD:         extractSLD(domain),
 		NameServers: []string{},
 		Details:     make(map[string]string),
 	}
@@ -803,6 +775,30 @@ func CheckWhois(domain string, refresh bool) WhoisResult {
 			}
 			if !duplicate {
 				result.NameServers = append(result.NameServers, ns)
+			}
+		}
+
+		// Turkish WHOIS format: standalone NS entries like "s1.dgntek.com" on their own lines
+		// These appear after "Domain Servers:" header and are just domain names
+		if !strings.Contains(lineTrimmed, ":") && strings.Contains(lineTrimmed, ".") && !strings.Contains(lineTrimmed, " ") {
+			// Looks like a domain name - could be a name server
+			// Only add if it looks like a valid NS name (has dots and not an obvious URL)
+			if strings.Count(lineTrimmed, ".") >= 1 && len(lineTrimmed) > 4 {
+				ns := strings.ToLower(strings.TrimSpace(lineTrimmed))
+				ns = strings.TrimSuffix(ns, ".")
+				// Filter out obvious non-NS entries
+				if !strings.HasPrefix(ns, "http") && !strings.HasPrefix(ns, "www") {
+					duplicate := false
+					for _, existing := range result.NameServers {
+						if existing == ns {
+							duplicate = true
+							break
+						}
+					}
+					if !duplicate {
+						result.NameServers = append(result.NameServers, ns)
+					}
+				}
 			}
 		}
 

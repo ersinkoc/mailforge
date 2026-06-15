@@ -2,7 +2,6 @@ package tools
 
 import (
 	"context"
-	"crypto"
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -194,6 +193,7 @@ func InspectTLS(host string, port int) TLSInspectResult {
 
 	if port == 443 || port == 80 {
 		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+		defer cancel()
 		if hstsValue, ok := checkHSTS(ctx, host, port); ok {
 			result.HSTS = true
 			_ = hstsValue
@@ -204,7 +204,6 @@ func InspectTLS(host string, port int) TLSInspectResult {
 			})
 			score -= 5
 		}
-		cancel()
 	}
 
 	if score < 0 {
@@ -249,7 +248,6 @@ func buildCertDetail(cert *x509.Certificate) CertDetail {
 			cd.KeyAlg = "DSA"
 		}
 	}
-	_ = crypto.SHA256
 	return cd
 }
 

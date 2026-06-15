@@ -4,14 +4,62 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"mailforge/internal/tools"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
+
+// isPrivateOrLocalhost checks if the given host is a private IP, localhost, or link-local.
+// This prevents SSRF attacks where internal resources could be probed.
+func isPrivateOrLocalhost(host string) bool {
+	// Check for localhost and common local hostnames
+	lowerHost := strings.ToLower(host)
+	if lowerHost == "localhost" || lowerHost == "localhost.localdomain" {
+		return true
+	}
+	if strings.HasSuffix(lowerHost, ".local") || strings.HasSuffix(lowerHost, ".internal") {
+		return true
+	}
+
+	// Parse IP address
+	ip := net.ParseIP(host)
+	if ip == nil {
+		// Not an IP - could be a hostname. Allow public hostnames.
+		return false
+	}
+
+	// Check private IP ranges
+	// 10.0.0.0/8
+	if ip.IsPrivate() {
+		return true
+	}
+	// 172.16.0.0/12 (check manually - IsPrivate() may vary)
+	if b := ip.To4(); b != nil {
+		if b[0] == 172 && b[1] >= 16 && b[1] <= 31 {
+			return true
+		}
+		// 192.168.0.0/16
+		if b[0] == 192 && b[1] == 168 {
+			return true
+		}
+		// 127.0.0.0/8
+		if b[0] == 127 {
+			return true
+		}
+	}
+	// IPv6 loopback/link-local
+	if ip.IsLoopback() || ip.IsLinkLocalUnicast() {
+		return true
+	}
+
+	return false
+}
 
 type Server struct {
 	mux           *http.ServeMux
@@ -23,7 +71,7 @@ type Server struct {
 func NewRouter(staticFS embed.FS) *http.Server {
 	s := &Server{
 		mux:         http.NewServeMux(),
-		rateLimiter: NewRateLimiter(240, time.Minute), // 240 req/min — generous
+		rateLimiter: NewRateLimiter(240, time.Minute), // 240 req/min per client IP (4 req/sec)
 	}
 
 	// Setup static file serving with SPA fallback
@@ -117,7 +165,7 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 	if len(parts) == 0 || parts[0] == "" {
 		s.sendJSON(w, http.StatusOK, map[string]interface{}{
 			"service":     "MailForge API",
-			"version": "1.0.0",
+			"version":     "1.0.0",
 			"description": "Comprehensive email infrastructure diagnostic suite",
 			"endpoints":   endpointCatalog(),
 			"websocket":   []string{"ws /ws/monitor"},
@@ -255,11 +303,24 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 			s.sendError(w, http.StatusBadRequest, "URL required: /api/http/{url...}")
 			return
 		}
-		url := strings.Join(parts[1:], "/")
-		if !strings.HasPrefix(url, "http") {
-			url = "https://" + url
+		urlStr := strings.Join(parts[1:], "/")
+		if !strings.HasPrefix(urlStr, "http") {
+			urlStr = "https://" + urlStr
 		}
-		r := tools.InspectHTTPHeaders(url)
+
+		// SSRF protection: validate the target host
+		parsedURL, err := url.Parse(urlStr)
+		if err != nil || parsedURL.Host == "" {
+			s.sendError(w, http.StatusBadRequest, "Invalid URL")
+			return
+		}
+		host := parsedURL.Hostname()
+		if isPrivateOrLocalhost(host) {
+			s.sendError(w, http.StatusForbidden, "Cannot probe internal or private hosts")
+			return
+		}
+
+		r := tools.InspectHTTPHeaders(urlStr)
 		s.sendJSON(w, http.StatusOK, wrap(r))
 	case "mtasts":
 		s.requireArg(parts, w, "Domain required: /api/mtasts/{domain}", func() {
@@ -320,7 +381,8 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Text string `json:"text"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		// Limit body to 1MB to prevent memory exhaustion
+		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
 			s.sendError(w, http.StatusBadRequest, "Invalid JSON body")
 			return
 		}

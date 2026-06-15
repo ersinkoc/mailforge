@@ -6,7 +6,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 )
@@ -57,6 +56,7 @@ type RateLimiter struct {
 	visitors map[string]*visitor
 	limit    int
 	window   time.Duration
+	done     chan struct{}
 }
 
 type visitor struct {
@@ -71,17 +71,23 @@ func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
 		limit:    limit,
 		window:   window,
 	}
-	// Cleanup stale entries every minute
+	// Cleanup stale entries every minute with graceful shutdown
+	done := make(chan struct{})
+	rl.done = done
 	go func() {
 		for {
-			time.Sleep(time.Minute)
-			rl.mu.Lock()
-			for ip, v := range rl.visitors {
-				if time.Since(v.lastSeen) > rl.window*2 {
-					delete(rl.visitors, ip)
+			select {
+			case <-done:
+				return
+			case <-time.After(time.Minute):
+				rl.mu.Lock()
+				for ip, v := range rl.visitors {
+					if time.Since(v.lastSeen) > rl.window*2 {
+						delete(rl.visitors, ip)
+					}
 				}
+				rl.mu.Unlock()
 			}
-			rl.mu.Unlock()
 		}
 	}()
 	return rl
@@ -121,9 +127,11 @@ func (rl *RateLimiter) RateLimitMiddleware(next http.Handler) http.Handler {
 		if host, _, err := net.SplitHostPort(ip); err == nil {
 			ip = host
 		}
-		if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
-			ip = strings.TrimSpace(strings.Split(fwd, ",")[0])
-		}
+
+		// NOTE: X-Forwarded-For is intentionally NOT trusted here to prevent IP spoofing.
+		// If this server is behind a trusted reverse proxy, the proxy should set
+		// r.RemoteAddr to the real client IP, or a separate middleware should
+		// validate and propagate trusted X-Forwarded-For values.
 
 		if !rl.allow(ip) {
 			w.Header().Set("Content-Type", "application/json")
@@ -134,6 +142,13 @@ func (rl *RateLimiter) RateLimitMiddleware(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// Close stops the rate limiter cleanup goroutine.
+func (rl *RateLimiter) Close() {
+	if rl.done != nil {
+		close(rl.done)
+	}
 }
 
 // CORSMiddleware adds permissive CORS headers.

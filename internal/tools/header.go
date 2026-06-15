@@ -6,6 +6,13 @@ import (
 	"strings"
 )
 
+// Pre-compiled regex patterns for Received header parsing
+var (
+	receivedFromRe = regexp.MustCompile(`from\s+([^\s]+)`)
+	receivedByRe   = regexp.MustCompile(`by\s+([^\s]+)`)
+	receivedWithRe = regexp.MustCompile(`with\s+(\w+)`)
+)
+
 func AnalyzeHeader(header string) HeaderAnalysisResult {
 	result := HeaderAnalysisResult{
 		Headers:     make(map[string]string),
@@ -105,13 +112,11 @@ func parseRoutingFromHeaders(result *HeaderAnalysisResult) {
 		h := RoutingHop{Hop: hop}
 		entry := receivedHeaders[i]
 
-		fromRe := regexp.MustCompile(`from\s+([^\s]+)`)
-		if match := fromRe.FindStringSubmatch(entry); len(match) > 1 {
+		if match := receivedFromRe.FindStringSubmatch(entry); len(match) > 1 {
 			h.From = match[1]
 		}
 
-		byRe := regexp.MustCompile(`by\s+([^\s]+)`)
-		if match := byRe.FindStringSubmatch(entry); len(match) > 1 {
+		if match := receivedByRe.FindStringSubmatch(entry); len(match) > 1 {
 			h.To = match[1]
 			h.Server = match[1]
 		}
@@ -120,8 +125,7 @@ func parseRoutingFromHeaders(result *HeaderAnalysisResult) {
 			h.Date = strings.TrimSpace(entry[idx+1:])
 		}
 
-		withRe := regexp.MustCompile(`with\s+(\w+)`)
-		if match := withRe.FindStringSubmatch(entry); len(match) > 1 {
+		if match := receivedWithRe.FindStringSubmatch(entry); len(match) > 1 {
 			h.Delay = fmt.Sprintf("Protocol: %s", match[1])
 		}
 

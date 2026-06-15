@@ -47,7 +47,7 @@ func LookupIPGeo(ip string) IPGeoResult {
 		Query       string  `json:"query"`
 	}
 
-	url := fmt.Sprintf("http://ip-api.com/json/%s?fields=status,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,reverse,mobile,proxy,hosting,query", ip)
+	url := fmt.Sprintf("https://ip-api.com/json/%s?fields=status,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,reverse,mobile,proxy,hosting,query", ip)
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err == nil {
 		req.Header.Set("User-Agent", "MailForge/2.0")

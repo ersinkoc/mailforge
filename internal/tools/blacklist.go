@@ -49,7 +49,13 @@ func CheckBlacklist(ip string) BlacklistResult {
 		return result
 	}
 
-	parts := strings.Split(parsedIP.To4().String(), ".")
+	parts4 := parsedIP.To4()
+	if parts4 == nil {
+		result.Error = "Only IPv4 addresses are supported for blacklist checks"
+		result.Duration = time.Since(start).Milliseconds()
+		return result
+	}
+	parts := strings.Split(parts4.String(), ".")
 	if len(parts) != 4 {
 		result.Error = "Only IPv4 addresses are supported for blacklist checks"
 		result.Duration = time.Since(start).Milliseconds()

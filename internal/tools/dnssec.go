@@ -93,7 +93,10 @@ func CheckMTASTS(domain string) MTASTSResult {
 	//   mx: mail.example.com
 	//   max_age: 86400
 	buf := make([]byte, 4096)
-	n, _ := resp.Body.Read(buf)
+	n, err := resp.Body.Read(buf)
+	if err != nil && n == 0 {
+		result.Errors = append(result.Errors, fmt.Sprintf("Failed to read MTA-STS response: %v", err))
+	}
 	body := string(buf[:n])
 	for _, line := range strings.Split(body, "\n") {
 		line = strings.TrimSpace(line)

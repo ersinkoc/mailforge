@@ -11,16 +11,18 @@ import (
 
 // MonitorEntry represents a single monitored target
 type MonitorEntry struct {
-	ID         string         `json:"id"`
-	Name       string         `json:"name"`
-	Type       string         `json:"type"` // domain | ip | host
-	Tool       string         `json:"tool"` // dns | smtp | spf | dmarc | blacklist | ports
-	Value      string         `json:"value"`
-	Interval   int            `json:"interval"` // seconds
-	LastStatus string         `json:"last_status"`
-	LastCheck  int64          `json:"last_check"`
-	History    []MonitorPoint `json:"history"`
-	mu         sync.Mutex
+	ID          string         `json:"id"`
+	Name        string         `json:"name"`
+	Type        string         `json:"type"` // domain | ip | host
+	Tool        string         `json:"tool"` // dns | smtp | spf | dmarc | blacklist | ports
+	Value       string         `json:"value"`
+	Interval    int            `json:"interval"` // seconds
+	LastStatus  string         `json:"last_status"`
+	LastMessage string         `json:"last_message"`
+	LastCheck   int64          `json:"last_check"`
+	History     []MonitorPoint `json:"history"`
+	mu          sync.Mutex
+	done        chan struct{} // closed when monitor should stop
 }
 
 type MonitorPoint struct {
@@ -51,6 +53,7 @@ func AddMonitor(entry *MonitorEntry) {
 		entry.Interval = 60
 	}
 	entry.History = []MonitorPoint{}
+	entry.done = make(chan struct{})
 	monitorStore.entries[entry.ID] = entry
 	go runMonitorLoop(entry)
 }
@@ -58,11 +61,14 @@ func AddMonitor(entry *MonitorEntry) {
 func RemoveMonitor(id string) bool {
 	monitorStore.Lock()
 	defer monitorStore.Unlock()
-	if _, ok := monitorStore.entries[id]; ok {
-		delete(monitorStore.entries, id)
-		return true
+	entry, ok := monitorStore.entries[id]
+	if !ok {
+		return false
 	}
-	return false
+	// Signal the monitor loop to stop
+	close(entry.done)
+	delete(monitorStore.entries, id)
+	return true
 }
 
 func ListMonitors() []*MonitorEntry {
@@ -84,10 +90,16 @@ func GetMonitor(id string) *MonitorEntry {
 func runMonitorLoop(entry *MonitorEntry) {
 	t := time.NewTicker(time.Duration(entry.Interval) * time.Second)
 	defer t.Stop()
+	defer close(entry.done) // signal that this goroutine is stopping
 	// Run immediately on start
 	runMonitorCheck(entry)
-	for range t.C {
-		runMonitorCheck(entry)
+	for {
+		select {
+		case <-entry.done:
+			return
+		case <-t.C:
+			runMonitorCheck(entry)
+		}
 	}
 }
 
@@ -201,11 +213,12 @@ func runMonitorCheck(entry *MonitorEntry) {
 	}
 
 	if err != nil {
-		_ = err
+		log.Printf("⚠️ Monitor check error for %s: %v", entry.Value, err)
 	}
 
 	entry.mu.Lock()
 	entry.LastStatus = status
+	entry.LastMessage = message
 	entry.LastCheck = time.Now().Unix()
 	entry.History = append(entry.History, MonitorPoint{
 		Timestamp: time.Now().Unix(),
@@ -214,7 +227,10 @@ func runMonitorCheck(entry *MonitorEntry) {
 		Duration:  time.Since(start).Milliseconds(),
 	})
 	if len(entry.History) > 200 {
-		entry.History = entry.History[len(entry.History)-200:]
+		// Create new backing array to allow GC of old entries
+		trimmed := make([]MonitorPoint, 200)
+		copy(trimmed, entry.History[len(entry.History)-200:])
+		entry.History = trimmed
 	}
 	entry.mu.Unlock()
 
@@ -232,7 +248,7 @@ func broadcastMonitorUpdate(entry *MonitorEntry) {
 		"type":    "monitor_update",
 		"id":      entry.ID,
 		"status":  entry.LastStatus,
-		"message": entry.LastCheck,
+		"message": entry.LastMessage,
 		"history": entry.History,
 	}
 	data, err := json.Marshal(payload)
