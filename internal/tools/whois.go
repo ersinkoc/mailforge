@@ -612,27 +612,36 @@ func getWhoisServer(domain string) string {
 	}
 
 	// Fallback: query IANA to discover the WHOIS server
+	// IMPORTANT: We query with the TLD only, NOT the full domain
+	// whois.iana.org returns TLD records when queried with a TLD,
+	// which contain a "refer:" line pointing to the actual WHOIS server
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 
 	response, err := queryWhois(ctx, "whois.iana.org", tld)
 	if err != nil {
-		// Ultimate fallback
+		// Ultimate fallback - but whois.iana.org doesn't handle domain queries
 		return "whois.iana.org"
 	}
 
 	// Parse "refer:        whois.example.com" from IANA response
 	for _, line := range strings.Split(response, "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(strings.ToLower(line), "refer:") {
-			server := strings.TrimSpace(strings.TrimPrefix(line, "refer:"))
-			server = strings.TrimSpace(strings.TrimPrefix(server, "Refer:"))
-			if server != "" {
+		lineLower := strings.ToLower(line)
+		if strings.HasPrefix(lineLower, "refer:") {
+			// Extract everything after "refer:" (case-insensitive)
+			afterRefer := line[len("refer:"):]
+			server := strings.TrimSpace(afterRefer)
+			// Also handle "Refer:" variant
+			afterRefer = strings.TrimPrefix(line, "Refer:")
+			afterRefer = strings.TrimPrefix(afterRefer, "refer:")
+			server = strings.TrimSpace(afterRefer)
+			if server != "" && server != "whois.iana.org" {
 				return server
 			}
 		}
 	}
 
+	// If no valid referral found, return IANA (but domain queries will get TLD records)
 	return "whois.iana.org"
 }
 
@@ -674,6 +683,51 @@ func parseWhoisField(line string, prefixes ...string) string {
 		}
 	}
 	return ""
+}
+
+// isIanaTLDRecord detects if a WHOIS response is a TLD record instead of a domain record.
+// This happens when whois.iana.org is queried with a domain instead of a TLD,
+// or when a WHOIS server returns its TLD record instead of the domain record.
+func isIanaTLDRecord(response, domain string) bool {
+	domainLower := strings.ToLower(domain)
+	tld := extractTLD(domain)
+	tldLower := strings.ToLower(tld)
+
+	// Check if the domain name appears in the response
+	// Domain records should contain the domain name multiple times
+	domainAppears := strings.Contains(strings.ToLower(response), domainLower)
+
+	// TLD records typically contain references to the TLD but not the full domain
+	// or contain "TLD" in the response
+	tldAppears := strings.Contains(strings.ToLower(response), "."+tldLower)
+
+	// Count how many times the domain appears in the response
+	domainCount := strings.Count(strings.ToLower(response), domainLower)
+
+	// If domain doesn't appear at all but TLD does, likely a TLD record
+	if !domainAppears && tldAppears {
+		return true
+	}
+
+	// If domain appears very few times (< 2), might be a TLD record
+	// Real domain records have the domain appear multiple times (in various fields)
+	if domainAppears && domainCount < 2 {
+		return true
+	}
+
+	// Check for common TLD record indicators
+	responseLower := strings.ToLower(response)
+	tldIndicators := []string{
+		"tld:", "tld record", "registry:", "tld parent",
+		"domain not found:", "no match for:",
+	}
+	for _, indicator := range tldIndicators {
+		if strings.Contains(responseLower, indicator) && !domainAppears {
+			return true
+		}
+	}
+
+	return false
 }
 
 // WhoisCacheStats returns current cache statistics
@@ -740,17 +794,25 @@ func CheckWhois(domain string, refresh bool) WhoisResult {
 	// Step 2: Query the TLD-specific WHOIS server
 	response, err := queryWhois(ctx, server, domain)
 	if err != nil {
-		// Fallback: try IANA directly
-		result.Server = "whois.iana.org"
-		response, err = queryWhois(ctx, "whois.iana.org", domain)
-		if err != nil {
-			result.Error = fmt.Sprintf("WHOIS lookup failed: %v", err)
-			result.Duration = time.Since(start).Milliseconds()
-			return result
-		}
+		// Don't fall back to IANA for domain queries - whois.iana.org
+		// returns TLD records when queried with a domain name, not domain records.
+		// This is expected behavior for TLD registries that don't support
+		// direct domain queries.
+		result.Error = fmt.Sprintf("WHOIS lookup failed for %s (server: %s): %v", domain, server, err)
+		result.Duration = time.Since(start).Milliseconds()
+		return result
 	}
 
-	// Step 3: Parse the response
+	// Step 3: Detect if we got a TLD record instead of a domain record
+	// IANA returns TLD records when queried with a domain instead of a TLD.
+	// Common indicators: no domain name in response, contains "TLD parent" or "registry" info.
+	if isIanaTLDRecord(response, domain) {
+		result.Error = fmt.Sprintf("WHOIS server %s did not return domain %s (got TLD record instead)", server, domain)
+		result.Duration = time.Since(start).Milliseconds()
+		return result
+	}
+
+	// Step 4: Parse the response
 	for _, line := range strings.Split(response, "\n") {
 		lineTrimmed := strings.TrimSpace(line)
 		if lineTrimmed == "" || strings.HasPrefix(lineTrimmed, "%") || strings.HasPrefix(lineTrimmed, "#") || strings.HasPrefix(lineTrimmed, "--") {
