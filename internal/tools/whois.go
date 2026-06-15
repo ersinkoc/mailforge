@@ -1511,33 +1511,253 @@ func convertToRdapURL(regURL string) string {
 
 	// Common registry to RDAP URL conversions (normalized keys)
 	registryToRdap := map[string]string{
+		// Google Registry (.dev, .app, .chrome, etc.)
 		"https://www.registry.google":            "https://pubapi.registry.google/rdap",
 		"https://www.registry.google/":           "https://pubapi.registry.google/rdap",
 		"http://www.registry.google":             "https://pubapi.registry.google/rdap",
+		"http://www.registry.google/":             "https://pubapi.registry.google/rdap",
+		"https://registry.google":                "https://pubapi.registry.google/rdap",
+
+		// Verisign (.com, .net, .cc)
 		"https://www.verisign.com":               "https://rdap.verisign.com",
 		"https://www.verisign.com/":              "https://rdap.verisign.com",
 		"http://www.verisign.com":                "https://rdap.verisign.com",
 		"http://www.verisign.com/":               "https://rdap.verisign.com",
 		"https://www.verisigninc.com":            "https://rdap.verisign.com",
 		"http://www.verisigninc.com":             "https://rdap.verisign.com",
+		"https://verisign.com":                   "https://rdap.verisign.com",
+
+		// Af菪as (.info, .mobi, .org, etc.)
 		"https://www.afilias.info":               "https://rdap.afilias.net",
 		"https://www.afilias.net":                "https://rdap.afilias.net",
 		"http://www.afilias.info":                "https://rdap.afilias.net",
 		"http://www.afilias.net":                 "https://rdap.afilias.net",
+		"https://afilias.info":                   "https://rdap.afilias.net",
+		"https://afilias.net":                    "https://rdap.afilias.net",
+
+		// .io
 		"https://www.nic.io":                     "https://rdap.nic.io",
 		"http://www.nic.io":                      "https://rdap.nic.io",
+		"https://nic.io":                         "https://rdap.nic.io",
+
+		// .co
 		"https://www.nic.co":                     "https://rdap.nic.co",
 		"http://www.nic.co":                      "https://rdap.nic.co",
+		"https://nic.co":                         "https://rdap.nic.co",
+
+		// .ai
 		"https://www.nic.ai":                     "https://rdap.nic.ai",
 		"http://www.nic.ai":                      "https://rdap.nic.ai",
+		"https://nic.ai":                         "https://rdap.nic.ai",
+
+		// .xyz / .xyz registry
 		"https://www.nic.xyz":                    "https://rdap.nic.xyz",
 		"http://www.nic.xyz":                     "https://rdap.nic.xyz",
 		"https://www.registry.xyz":               "https://rdap.nic.xyz",
 		"http://www.registry.xyz":                "https://rdap.nic.xyz",
+		"https://registry.xyz":                   "https://rdap.nic.xyz",
+		"https://www.xyz":                        "https://rdap.nic.xyz",
+
+		// CentralNic
 		"https://www.centralnic.com":             "https://rdap.centralnic.com",
 		"http://www.centralnic.com":              "https://rdap.centralnic.com",
+		"https://centralnic.com":                 "https://rdap.centralnic.com",
+
+		// PIR (.org)
 		"https://www.publicinterestregistry.org": "https://rdap.publicinterestregistry.org",
 		"http://www.publicinterestregistry.org":  "https://rdap.publicinterestregistry.org",
+		"https://pir.org":                        "https://rdap.publicinterestregistry.org",
+		"http://pir.org":                         "https://rdap.publicinterestregistry.org",
+
+		// Identity Digital / NeuStar (.us, .buzz, etc.)
+		"https://www.identitydigital.com":        "https://rdap.registrar.buzz",
+		"http://www.identitydigital.com":         "https://rdap.registrar.buzz",
+		"https://identitydigital.com":             "https://rdap.registrar.buzz",
+		"https://www.neustar.com":                "https://rdap.registrar.buzz",
+		"http://www.neustar.com":                 "https://rdap.registrar.buzz",
+
+		// Radix (.online, .site, .website, etc.)
+		"https://www.radix.website":              "https://rdap.radix.website",
+		"http://www.radix.website":               "https://rdap.radix.website",
+		"https://radix.website":                  "https://rdap.radix.website",
+		"https://www.radixregistry.net":          "https://rdap.radix.website",
+		"http://www.radixregistry.net":           "https://rdap.radix.website",
+
+		// Donuts / Ethos Capital (.academy, .email, etc.)
+		"https://www.donuts.co":                  "https://rdap.centralnic.com",
+		"http://www.donuts.co":                   "https://rdap.centralnic.com",
+		"https://donuts.co":                      "https://rdap.centralnic.com",
+
+		// Rightside / Demandware (.gc, .auction, etc.)
+		"https://www.rightside.co":               "https://rdap.centralnic.com",
+		"http://www.rightside.co":                "https://rdap.centralnic.com",
+
+		// MMX (.flight, .hotel, etc.)
+		"https://www.mmxmlink.com":               "https://rdap.centralnic.com",
+		"http://www.mmxmlink.com":                "https://rdap.centralnic.com",
+
+		// Uniregistry (.horse, .diet, etc.)
+		"https://www.uniregistry.com":             "https://rdap.uniregistry.net",
+		"http://www.uniregistry.com":              "https://rdap.uniregistry.net",
+		"https://uniregistry.com":                  "https://rdap.uniregistry.net",
+
+		// DotBrand (.audi, .bmw, .mercedes, etc.)
+		"https://www.registry.corporate":          "https://rdap.centralnic.com",
+		"http://www.registry.corporate":           "https://rdap.centralnic.com",
+
+		// Nominet (.uk)
+		"https://www.nominet.uk":                  "https://rdap.nic.uk",
+		"http://www.nominet.uk":                   "https://rdap.nic.uk",
+		"https://nominet.uk":                      "https://rdap.nic.uk",
+
+		// SIDN (.nl)
+		"https://www.sidn.nl":                     "https://rdap.sidn.nl",
+		"http://www.sidn.nl":                      "https://rdap.sidn.nl",
+		"https://sidn.nl":                         "https://rdap.sidn.nl",
+
+		// DNS Belgium (.be)
+		"https://www.dnsbelgium.be":               "https://rdap.nic.be",
+		"http://www.dnsbelgium.be":                "https://rdap.nic.be",
+
+		// EURid (.eu)
+		"https://www.eurid.eu":                   "https://rdap.eurid.eu",
+		"http://www.eurid.eu":                    "https://rdap.eurid.eu",
+		"https://eurid.eu":                       "https://rdap.eurid.eu",
+
+		// .cn (CNNIC)
+		"https://www.cnnic.cn":                    "https://rdap.cnnic.cn",
+		"http://www.cnnic.cn":                     "https://rdap.cnnic.cn",
+		"https://cnnic.cn":                        "https://rdap.cnnic.cn",
+
+		// JPRS (.jp)
+		"https://www.jprs.jp":                     "https://rdap.jprs.jp",
+		"http://www.jprs.jp":                      "https://rdap.jprs.jp",
+		"https://jprs.jp":                         "https://rdap.jprs.jp",
+
+		// KISA (.kr)
+		"https://www.kisa.or.kr":                  "https://rdap.kr",
+		"http://www.kisa.or.kr":                   "https://rdap.kr",
+
+		// NZRS (.nz)
+		"https://www.nzrs.net.nz":                 "https://rdap.nzrs.net.nz",
+		"http://www.nzrs.net.nz":                  "https://rdap.nzrs.net.nz",
+
+		// HKIRC (.hk)
+		"https://www.hkirc.hk":                    "https://rdap.hkirc.hk",
+		"http://www.hkirc.hk":                     "https://rdap.hkirc.hk",
+
+		// TWNCIC (.tw)
+		"https://www.twnic.net.tw":                "https://rdap.twnic.net.tw",
+		"http://www.twnic.net.tw":                 "https://rdap.twnic.net.tw",
+
+		// SGNIC (.sg)
+		"https://www.sgnic.sg":                    "https://rdap.sgnic.sg",
+		"http://www.sgnic.sg":                     "https://rdap.sgnic.sg",
+
+		// INRegistry (.in)
+		"https://www.inregistry.in":               "https://rdap.inregistry.in",
+		"http://www.inregistry.in":                "https://rdap.inregistry.in",
+
+		// .tr (TRABIS)
+		"https://www.trabis.gov.tr":               "https://rdap.trabis.gov.tr",
+		"http://www.trabis.gov.tr":                "https://rdap.trabis.gov.tr",
+
+		// .br (Registro.br)
+		"https://www.registro.br":                 "https://rdap.registro.br",
+		"http://www.registro.br":                  "https://rdap.registro.br",
+
+		// ArTLD (.ar)
+		"https://www.nic.ar":                      "https://rdap.nic.ar",
+		"http://www.nic.ar":                       "https://rdap.nic.ar",
+
+		// .cl (NIC Chile)
+		"https://www.nic.cl":                      "https://rdap.nic.cl",
+		"http://www.nic.cl":                       "https://rdap.nic.cl",
+
+		// .pt (DNS Portugal)
+		"https://www.dns.pt":                      "https://rdap.dns.pt",
+		"http://www.dns.pt":                       "https://rdap.dns.pt",
+
+		// .pl (NASK)
+		"https://www.dns.pl":                      "https://rdap.dns.pl",
+		"http://www.dns.pl":                       "https://rdap.dns.pl",
+
+		// .ch (SWITCH)
+		"https://www.nic.ch":                      "https://rdap.nic.ch",
+		"http://www.nic.ch":                       "https://rdap.nic.ch",
+
+		// .se (IIS)
+		"https://www.iis.se":                      "https://rdap.iis.se",
+		"http://www.iis.se":                       "https://rdap.iis.se",
+
+		// .no (Norid)
+		"https://www.norid.no":                    "https://rdap.norid.no",
+		"http://www.norid.no":                     "https://rdap.norid.no",
+
+		// .fi (CSC)
+		"https://www.csc.fi":                      "https://rdap.csc.fi",
+		"http://www.csc.fi":                       "https://rdap.csc.fi",
+
+		// .dk (DK Hostmaster)
+		"https://www.dk-hostmaster.dk":             "https://rdap.dk-hostmaster.dk",
+		"http://www.dk-hostmaster.dk":              "https://rdap.dk-hostmaster.dk",
+
+		// .at (nic.at)
+		"https://www.nic.at":                      "https://rdap.nic.at",
+		"http://www.nic.at":                       "https://rdap.nic.at",
+
+		// .fr (AFNIC)
+		"https://www.afnic.fr":                    "https://rdap.afnic.fr",
+		"http://www.afnic.fr":                     "https://rdap.afnic.fr",
+		"https://afnic.fr":                        "https://rdap.afnic.fr",
+
+		// .de (DENIC)
+		"https://www.denic.de":                    "https://rdap.denic.de",
+		"http://www.denic.de":                     "https://rdap.denic.de",
+
+		// .es (Red.es)
+		"https://www.dominios.es":                 "https://rdap.es",
+		"http://www.dominios.es":                  "https://rdap.es",
+
+		// .it (IIT)
+		"https://www.nic.it":                      "https://rdap.nic.it",
+		"http://www.nic.it":                       "https://rdap.nic.it",
+
+		// .ru (CCTLD)
+		"https://www.cctld.ru":                    "https://rdap.cctld.ru",
+		"http://www.cctld.ru":                     "https://rdap.cctld.ru",
+
+		// .ua (Hostmaster)
+		"https://www.ua":                          "https://rdap.ua",
+		"http://www.ua":                           "https://rdap.ua",
+
+		// .il (ISOC)
+		"https://www.isoc.org.il":                  "https://rdap.isoc.org.il",
+		"http://www.isoc.org.il":                   "https://rdap.isoc.org.il",
+
+		// .th (THNIC)
+		"https://www.thnic.co.th":                  "https://rdap.thnic.co.th",
+		"http://www.thnic.co.th":                   "https://rdap.thnic.co.th",
+
+		// .id (PANDI)
+		"https://www.pandi.or.id":                  "https://rdap.id",
+		"http://www.pandi.or.id":                   "https://rdap.id",
+
+		// .my (MYNIC)
+		"https://www.mynic.my":                    "https://rdap.mynic.my",
+		"http://www.mynic.my":                     "https://rdap.mynic.my",
+
+		// .ph (PHdot)
+		"https://www.dot.ph":                      "https://rdap.dot.ph",
+		"http://www.dot.ph":                       "https://rdap.dot.ph",
+
+		// .au (Auda)
+		"https://www.auda.org.au":                 "https://rdap.auda.org.au",
+		"http://www.auda.org.au":                  "https://rdap.auda.org.au",
+
+		// .ca (CIRA)
+		"https://www.cira.ca":                     "https://rdap.cira.ca",
+		"http://www.cira.ca":                      "https://rdap.cira.ca",
 	}
 
 	// Check for direct match with normalized URL
@@ -1556,24 +1776,153 @@ func convertToRdapURL(regURL string) string {
 	// If URL contains certain patterns, try to construct RDAP URL
 	lower := strings.ToLower(regURL)
 	switch {
+	// Google Registry
 	case strings.Contains(lower, "registry.google"):
 		return "https://pubapi.registry.google/rdap"
+	// Verisign
 	case strings.Contains(lower, "verisign"):
 		return "https://rdap.verisign.com"
+	// Af菪as
 	case strings.Contains(lower, "afilias"):
 		return "https://rdap.afilias.net"
-	case strings.Contains(lower, "nic.io"):
+	// .io
+	case strings.Contains(lower, "nic.io") || strings.Contains(lower, ".io/"):
 		return "https://rdap.nic.io"
-	case strings.Contains(lower, "nic.co"):
+	// .co
+	case strings.Contains(lower, "nic.co") || strings.Contains(lower, ".co/"):
 		return "https://rdap.nic.co"
-	case strings.Contains(lower, "nic.ai"):
+	// .ai
+	case strings.Contains(lower, "nic.ai") || strings.Contains(lower, ".ai/"):
 		return "https://rdap.nic.ai"
+	// .xyz
 	case strings.Contains(lower, "nic.xyz") || strings.Contains(lower, "registry.xyz"):
 		return "https://rdap.nic.xyz"
+	// CentralNic
 	case strings.Contains(lower, "centralnic"):
 		return "https://rdap.centralnic.com"
+	// PIR (.org)
 	case strings.Contains(lower, "publicinterestregistry") || strings.Contains(lower, "pir.org"):
 		return "https://rdap.publicinterestregistry.org"
+	// Identity Digital
+	case strings.Contains(lower, "identitydigital") || strings.Contains(lower, "neustar"):
+		return "https://rdap.registrar.buzz"
+	// Radix
+	case strings.Contains(lower, "radix"):
+		return "https://rdap.radix.website"
+	// Uniregistry
+	case strings.Contains(lower, "uniregistry"):
+		return "https://rdap.uniregistry.net"
+	// Nominet (.uk)
+	case strings.Contains(lower, "nominet"):
+		return "https://rdap.nic.uk"
+	// SIDN (.nl)
+	case strings.Contains(lower, "sidn"):
+		return "https://rdap.sidn.nl"
+	// DNS Belgium (.be)
+	case strings.Contains(lower, "dnsbelgium"):
+		return "https://rdap.nic.be"
+	// EURid (.eu)
+	case strings.Contains(lower, "eurid"):
+		return "https://rdap.eurid.eu"
+	// CNNIC (.cn)
+	case strings.Contains(lower, "cnnic"):
+		return "https://rdap.cnnic.cn"
+	// JPRS (.jp)
+	case strings.Contains(lower, "jprs"):
+		return "https://rdap.jprs.jp"
+	// KISA (.kr)
+	case strings.Contains(lower, "kisa"):
+		return "https://rdap.kr"
+	// NZRS (.nz)
+	case strings.Contains(lower, "nzrs"):
+		return "https://rdap.nzrs.net.nz"
+	// HKIRC (.hk)
+	case strings.Contains(lower, "hkirc"):
+		return "https://rdap.hkirc.hk"
+	// TWNCIC (.tw)
+	case strings.Contains(lower, "twnic"):
+		return "https://rdap.twnic.net.tw"
+	// SGNIC (.sg)
+	case strings.Contains(lower, "sgnic"):
+		return "https://rdap.sgnic.sg"
+	// INRegistry (.in)
+	case strings.Contains(lower, "inregistry"):
+		return "https://rdap.inregistry.in"
+	// TRABIS (.tr)
+	case strings.Contains(lower, "trabis"):
+		return "https://rdap.trabis.gov.tr"
+	// Registro.br (.br)
+	case strings.Contains(lower, "registro.br"):
+		return "https://rdap.registro.br"
+	// ArTLD (.ar)
+	case strings.Contains(lower, "nic.ar"):
+		return "https://rdap.nic.ar"
+	// NIC Chile (.cl)
+	case strings.Contains(lower, "nic.cl"):
+		return "https://rdap.nic.cl"
+	// DNS Portugal (.pt)
+	case strings.Contains(lower, "dns.pt"):
+		return "https://rdap.dns.pt"
+	// NASK (.pl)
+	case strings.Contains(lower, "dns.pl"):
+		return "https://rdap.dns.pl"
+	// SWITCH (.ch)
+	case strings.Contains(lower, "nic.ch"):
+		return "https://rdap.nic.ch"
+	// IIS (.se)
+	case strings.Contains(lower, "iis.se"):
+		return "https://rdap.iis.se"
+	// Norid (.no)
+	case strings.Contains(lower, "norid"):
+		return "https://rdap.norid.no"
+	// CSC (.fi)
+	case strings.Contains(lower, "csc.fi"):
+		return "https://rdap.csc.fi"
+	// DK Hostmaster (.dk)
+	case strings.Contains(lower, "dk-hostmaster"):
+		return "https://rdap.dk-hostmaster.dk"
+	// nic.at (.at)
+	case strings.Contains(lower, "nic.at"):
+		return "https://rdap.nic.at"
+	// AFNIC (.fr)
+	case strings.Contains(lower, "afnic"):
+		return "https://rdap.afnic.fr"
+	// DENIC (.de)
+	case strings.Contains(lower, "denic"):
+		return "https://rdap.denic.de"
+	// Red.es (.es)
+	case strings.Contains(lower, "dominios.es"):
+		return "https://rdap.es"
+	// IIT (.it)
+	case strings.Contains(lower, "nic.it"):
+		return "https://rdap.nic.it"
+	// CCTLD (.ru)
+	case strings.Contains(lower, "cctld"):
+		return "https://rdap.cctld.ru"
+	// Hostmaster (.ua)
+	case strings.Contains(lower, "hostmaster"):
+		return "https://rdap.ua"
+	// ISOC (.il)
+	case strings.Contains(lower, "isoc.org.il"):
+		return "https://rdap.isoc.org.il"
+	// THNIC (.th)
+	case strings.Contains(lower, "thnic"):
+		return "https://rdap.thnic.co.th"
+	// PANDI (.id)
+	case strings.Contains(lower, "pandi"):
+		return "https://rdap.id"
+	// MYNIC (.my)
+	case strings.Contains(lower, "mynic"):
+		return "https://rdap.mynic.my"
+	// DOTPH (.ph)
+	case strings.Contains(lower, "dot.ph"):
+		return "https://rdap.dot.ph"
+	// Auda (.au)
+	case strings.Contains(lower, "auda"):
+		return "https://rdap.auda.org.au"
+	// CIRA (.ca)
+	case strings.Contains(lower, "cira.ca"):
+		return "https://rdap.cira.ca"
 	}
 
 	return ""
