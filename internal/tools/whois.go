@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"regexp"
@@ -604,22 +605,22 @@ var knownRdapServers = map[string]string{
 	"ink":  "https://rdap.nic.ink",
 
 	// NeuStar/Identity Digital TLDs
-	"buzz":   "https://rdap.registrar.buzz",
-	"io":     "https://rdap.nic.io",      // .io also has RDAP
-	"co":     "https://rdap.nic.co",      // .co also has RDAP
-	"ai":     "https://rdap.nic.ai",      // .ai has RDAP
-	"sh":     "https://rdap.nic.sh",      // .sh has RDAP
-	"us":     "https://rdap.nic.us",     // .us has RDAP
+	"buzz": "https://rdap.registrar.buzz",
+	"io":   "https://rdap.nic.io", // .io also has RDAP
+	"co":   "https://rdap.nic.co", // .co also has RDAP
+	"ai":   "https://rdap.nic.ai", // .ai has RDAP
+	"sh":   "https://rdap.nic.sh", // .sh has RDAP
+	"us":   "https://rdap.nic.us", // .us has RDAP
 
 	// CentralNic TLDs
-	"click":  "https://rdap.centralnic.com/click",
-	"link":   "https://rdap.centralnic.com/link",
-	"host":   "https://rdap.centralnic.com/host",
+	"click":   "https://rdap.centralnic.com/click",
+	"link":    "https://rdap.centralnic.com/link",
+	"host":    "https://rdap.centralnic.com/host",
 	"website": "https://rdap.centralnic.com/website",
-	"space":  "https://rdap.centralnic.com/space",
-	"online": "https://rdap.centralnic.com/online",
-	"site":   "https://rdap.centralnic.com/site",
-	"tech":   "https://rdap.centralnic.com/tech",
+	"space":   "https://rdap.centralnic.com/space",
+	"online":  "https://rdap.centralnic.com/online",
+	"site":    "https://rdap.centralnic.com/site",
+	"tech":    "https://rdap.centralnic.com/tech",
 }
 
 // getRdapServer returns the RDAP server URL for a TLD if known
@@ -761,6 +762,201 @@ func parseRdapResponse(domain string, rdap map[string]interface{}) WhoisResult {
 	result.Details["rdap"] = string(rdapJSON)
 
 	return result
+}
+
+// tldInfo holds WHOIS and RDAP server information for a TLD
+type tldInfo struct {
+	whoisServer string
+	rdapURL     string
+}
+
+// discoverTLDInfo queries IANA to discover the WHOIS and RDAP servers for any TLD.
+// It fetches the IANA WHOIS response and optionally the HTML page to find RDAP info.
+func discoverTLDInfo(ctx context.Context, tld string) tldInfo {
+	info := tldInfo{}
+
+	// First, try WHOIS query to IANA
+	response, err := queryWhois(ctx, "whois.iana.org", tld)
+	if err == nil {
+		// Parse WHOIS server from "whois:" or "refer:" field
+		for _, line := range strings.Split(response, "\n") {
+			lineLower := strings.ToLower(strings.TrimSpace(line))
+
+			if strings.HasPrefix(lineLower, "whois:") {
+				server := strings.TrimPrefix(line, "whois:")
+				server = strings.TrimPrefix(server, "Whois:")
+				server = strings.TrimPrefix(server, "WHOIS:")
+				server = strings.TrimSpace(server)
+				if server != "" && server != "whois.iana.org" {
+					info.whoisServer = server
+					break
+				}
+			}
+
+			if strings.HasPrefix(lineLower, "refer:") {
+				server := strings.TrimPrefix(line, "refer:")
+				server = strings.TrimPrefix(server, "Refer:")
+				server = strings.TrimSpace(server)
+				if server != "" && server != "whois.iana.org" {
+					info.whoisServer = server
+					break
+				}
+			}
+		}
+
+		// Try to extract RDAP URL from remarks line
+		// Example: "remarks:      Registration information: https://www.registry.google"
+		if info.rdapURL == "" {
+			for _, line := range strings.Split(response, "\n") {
+				lineLower := strings.ToLower(line)
+				if strings.Contains(lineLower, "registration information:") ||
+				   strings.Contains(lineLower, "rdap server:") {
+					// Extract URL from the line
+					parts := strings.Split(line, "http")
+					for i := 1; i < len(parts); i++ {
+						url := "http" + strings.TrimSpace(parts[i])
+						url = strings.TrimSuffix(url, ".")
+						url = strings.TrimSpace(url)
+						if strings.HasPrefix(url, "http") {
+							info.rdapURL = url
+							break
+						}
+					}
+					if info.rdapURL != "" {
+						break
+					}
+				}
+			}
+		}
+	}
+
+	// If RDAP URL not found from WHOIS response, try IANA HTML page
+	if info.rdapURL == "" {
+		if htmlURL := fetchIANAHTMLPage(ctx, tld); htmlURL != "" {
+			info.rdapURL = htmlURL
+		}
+	}
+
+	return info
+}
+
+// fetchIANAHTMLPage fetches the IANA HTML page for a TLD and extracts the RDAP server URL.
+func fetchIANAHTMLPage(ctx context.Context, tld string) string {
+	url := fmt.Sprintf("https://www.iana.org/domains/root/db/%s.html", strings.ToLower(tld))
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("User-Agent", "MailForge/1.0 WHOIS-RDAP Client")
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+		Transport: &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout: 5 * time.Second,
+			}).DialContext,
+		},
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return ""
+	}
+
+	html := string(bodyBytes)
+
+	// Extract RDAP server from HTML
+	// Pattern: <b>RDAP Server: </b> https://pubapi.registry.google/rdap/
+	rdapPattern := regexp.MustCompile(`(?i)<b>\s*RDAP\s*Server:\s*</b>\s*(https?://[^\s<>]+)`)
+	if matches := rdapPattern.FindStringSubmatch(html); len(matches) > 1 {
+		rdapURL := strings.TrimSpace(matches[1])
+		// Remove trailing slash if present
+		rdapURL = strings.TrimSuffix(rdapURL, "/")
+		return rdapURL
+	}
+
+	// Try to extract from "remarks" or "registration services" URL
+	// and convert to RDAP URL if possible
+	remarksPattern := regexp.MustCompile(`(?i)(?:registration\s*services?:|remarks:).*?(https?://[^\s<>]+)`)
+	if matches := remarksPattern.FindStringSubmatch(html); len(matches) > 1 {
+		regURL := strings.TrimSpace(matches[1])
+		// Try to convert registry URL to RDAP URL
+		rdapURL := convertToRdapURL(regURL)
+		if rdapURL != "" {
+			return rdapURL
+		}
+	}
+
+	return ""
+}
+
+// convertToRdapURL attempts to convert a registry URL to an RDAP URL.
+func convertToRdapURL(regURL string) string {
+	// Common registry to RDAP URL conversions
+	registryToRdap := map[string]string{
+		"https://www.registry.google":       "https://pubapi.registry.google/rdap",
+		"https://www.registry.google/":      "https://pubapi.registry.google/rdap",
+		"https://www.verisign.com":          "https://rdap.verisign.com",
+		"https://www.verisign.com/":         "https://rdap.verisign.com",
+		"https://www.afilias.info":          "https://rdap.afilias.net",
+		"https://www.afilias.net":           "https://rdap.afilias.net",
+		"https://www.nic.io":               "https://rdap.nic.io",
+		"https://www.nic.co":               "https://rdap.nic.co",
+		"https://www.nic.ai":               "https://rdap.nic.ai",
+		"https://www.nic.xyz":              "https://rdap.nic.xyz",
+		"https://www.registry.xyz":         "https://rdap.nic.xyz",
+		"https://www.centralnic.com":       "https://rdap.centralnic.com",
+		"https://www.publicinterestregistry.org": "https://rdap.publicinterestregistry.org",
+	}
+
+	// Check for direct match
+	if rdapURL, ok := registryToRdap[regURL]; ok {
+		return rdapURL
+	}
+
+	// Try with trailing slash variations
+	urls := []string{regURL, strings.TrimSuffix(regURL, "/"), regURL + "/"}
+	for _, u := range urls {
+		if rdapURL, ok := registryToRdap[u]; ok {
+			return rdapURL
+		}
+	}
+
+	// If URL contains certain patterns, try to construct RDAP URL
+	lower := strings.ToLower(regURL)
+	switch {
+	case strings.Contains(lower, "registry.google"):
+		return "https://pubapi.registry.google/rdap"
+	case strings.Contains(lower, "verisign"):
+		return "https://rdap.verisign.com"
+	case strings.Contains(lower, "afilias"):
+		return "https://rdap.afilias.net"
+	case strings.Contains(lower, "nic.io"):
+		return "https://rdap.nic.io"
+	case strings.Contains(lower, "nic.co"):
+		return "https://rdap.nic.co"
+	case strings.Contains(lower, "nic.ai"):
+		return "https://rdap.nic.ai"
+	case strings.Contains(lower, "nic.xyz") || strings.Contains(lower, "registry.xyz"):
+		return "https://rdap.nic.xyz"
+	case strings.Contains(lower, "centralnic"):
+		return "https://rdap.centralnic.com"
+	case strings.Contains(lower, "publicinterestregistry") || strings.Contains(lower, "pir.org"):
+		return "https://rdap.publicinterestregistry.org"
+	}
+
+	return ""
 }
 
 // queryWhois connects to a WHOIS server and returns the raw response
@@ -984,21 +1180,34 @@ func CheckWhois(domain string, refresh bool) WhoisResult {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 	defer cancel()
 
-	// Step 1: Find the correct WHOIS server for this domain's TLD
-	server := getWhoisServer(domain)
-	result.Server = server
+	// Step 1: Discover WHOIS and RDAP servers for this TLD dynamically
+	tld := strings.ToLower(extractTLD(domain))
+	tldInfo := discoverTLDInfo(ctx, tld)
 
-	// Step 2: Query the TLD-specific WHOIS server
-	response, err := queryWhois(ctx, server, domain)
+	// Use known maps as fallback, but prefer discovered info
+	whoisServer := tldInfo.whoisServer
+	if whoisServer == "" {
+		whoisServer = getWhoisServer(domain)
+	}
+	if whoisServer == "" {
+		whoisServer = "whois.iana.org"
+	}
+
+	rdapServer := tldInfo.rdapURL
+	if rdapServer == "" {
+		rdapServer = getRdapServer(tld)
+	}
+
+	result.Server = whoisServer
+
+	// Step 2: Query the WHOIS server
+	response, err := queryWhois(ctx, whoisServer, domain)
 	whoisSucceeded := err == nil && !isIanaTLDRecord(response, domain)
 
 	// Step 3: If WHOIS failed or returned TLD record, try RDAP if available
-	tld := strings.ToLower(extractTLD(domain))
-	rdapServer := getRdapServer(tld)
-
 	if !whoisSucceeded && rdapServer != "" {
 		// WHOIS failed, try RDAP
 		result.Server = rdapServer + " (RDAP)"
@@ -1017,14 +1226,14 @@ func CheckWhois(domain string, refresh bool) WhoisResult {
 
 	// If we get here, either WHOIS succeeded or RDAP failed
 	if err != nil {
-		result.Error = fmt.Sprintf("WHOIS lookup failed for %s (server: %s): %v", domain, server, err)
+		result.Error = fmt.Sprintf("WHOIS lookup failed for %s (server: %s): %v", domain, whoisServer, err)
 		result.Duration = time.Since(start).Milliseconds()
 		return result
 	}
 
 	// Step 4: Detect if we got a TLD record instead of a domain record
 	if isIanaTLDRecord(response, domain) {
-		result.Error = fmt.Sprintf("WHOIS server %s did not return domain %s (got TLD record instead)", server, domain)
+		result.Error = fmt.Sprintf("WHOIS server %s did not return domain %s (got TLD record instead)", whoisServer, domain)
 		result.Duration = time.Since(start).Milliseconds()
 		return result
 	}
