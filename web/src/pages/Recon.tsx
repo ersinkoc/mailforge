@@ -65,6 +65,280 @@ function StatusIcon({ status }: { status: string }) {
   }
 }
 
+// ===== VISUAL COMPONENTS =====
+
+// Security Score Gauge
+function SecurityScoreGauge({ score, grade }: { score: number; grade: string }) {
+  const radius = 70
+  const circumference = 2 * Math.PI * radius
+  const offset = circumference - (score / 100) * circumference
+  
+  const gradeColor = score >= 80 ? '#22c55e' : score >= 60 ? '#3b82f6' : score >= 40 ? '#f59e0b' : '#ef4444'
+  
+  return (
+    <div className="relative w-40 h-40 mx-auto">
+      <svg className="w-full h-full -rotate-90" viewBox="0 0 160 160">
+        <circle
+          cx="80"
+          cy="80"
+          r={radius}
+          fill="none"
+          stroke="var(--surface-2)"
+          strokeWidth="12"
+        />
+        <circle
+          cx="80"
+          cy="80"
+          r={radius}
+          fill="none"
+          stroke={gradeColor}
+          strokeWidth="12"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          className="transition-all duration-1000"
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-4xl font-bold" style={{ color: gradeColor }}>
+          {score}
+        </span>
+        <span className="text-sm text-text-muted">/ 100</span>
+        <span className="text-lg font-semibold mt-1" style={{ color: gradeColor }}>
+          {grade}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// Email Authentication Status Chart
+function EmailAuthChart({ spf, dkim, dmarc, mtasts, tlsrpt, bimi, dnssec }: {
+  spf: boolean; dkim: boolean; dmarc: boolean; mtasts: boolean; tlsrpt: boolean; bimi: boolean; dnssec: boolean
+}) {
+  const items = [
+    { name: 'SPF', enabled: spf, color: spf ? '#22c55e' : '#ef4444' },
+    { name: 'DKIM', enabled: dkim, color: dkim ? '#22c55e' : '#ef4444' },
+    { name: 'DMARC', enabled: dmarc, color: dmarc ? '#22c55e' : '#ef4444' },
+    { name: 'MTA-STS', enabled: mtasts, color: mtasts ? '#22c55e' : '#f59e0b' },
+    { name: 'TLS-RPT', enabled: tlsrpt, color: tlsrpt ? '#22c55e' : '#f59e0b' },
+    { name: 'BIMI', enabled: bimi, color: bimi ? '#22c55e' : '#f59e0b' },
+    { name: 'DNSSEC', enabled: dnssec, color: dnssec ? '#22c55e' : '#f59e0b' },
+  ]
+  
+  const enabledCount = items.filter(i => i.enabled).length
+  const totalCount = items.length
+  
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-text-muted">Email Security</span>
+        <span className="text-sm font-medium">
+          {enabledCount}/{totalCount}
+        </span>
+      </div>
+      <div className="h-3 bg-surface-2 rounded-full overflow-hidden flex">
+        {items.map((item, i) => (
+          <div
+            key={i}
+            className="h-full transition-all duration-300"
+            style={{ 
+              width: `${100/totalCount}%`,
+              backgroundColor: item.color,
+              opacity: item.enabled ? 1 : 0.3
+            }}
+            title={`${item.name}: ${item.enabled ? 'Enabled' : 'Disabled'}`}
+          />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {items.map((item, i) => (
+          <div key={i} className="flex items-center gap-1">
+            {item.enabled ? (
+              <CheckCircle2 className="w-3 h-3 text-success" />
+            ) : (
+              <XCircle className="w-3 h-3 text-danger" />
+            )}
+            <span className={cn(
+              "text-xs",
+              item.enabled ? 'text-text-primary' : 'text-text-muted'
+            )}>
+              {item.name}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// DNS Record Type Distribution
+function DNSRecordPie({ a, aaaa, mx, txt, ns, cname }: {
+  a: number; aaaa: number; mx: number; txt: number; ns: number; cname: number
+}) {
+  const data = [
+    { name: 'A', value: a, color: '#3b82f6' },
+    { name: 'AAAA', value: aaaa, color: '#8b5cf6' },
+    { name: 'MX', value: mx, color: '#f59e0b' },
+    { name: 'TXT', value: txt, color: '#22c55e' },
+    { name: 'NS', value: ns, color: '#ec4899' },
+    { name: 'CNAME', value: cname, color: '#06b6d4' },
+  ].filter(d => d.value > 0)
+  
+  const total = data.reduce((sum, d) => sum + d.value, 0)
+  
+  if (total === 0) return <p className="text-sm text-text-muted">No DNS records</p>
+  
+  return (
+    <div className="space-y-2">
+      {data.map((item, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="text-xs w-8 text-text-muted">{item.name}</span>
+          <div className="flex-1 h-4 bg-surface-2 rounded overflow-hidden">
+            <div
+              className="h-full rounded transition-all duration-500"
+              style={{ 
+                width: `${(item.value / total) * 100}%`,
+                backgroundColor: item.color
+              }}
+            />
+          </div>
+          <span className="text-xs w-6 text-right text-text-muted">{item.value}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Blacklist Status Visual
+function BlacklistStatusChart({ listed, clean, total }: { listed: number; clean: number; total: number }) {
+  const listedPct = total > 0 ? (listed / total) * 100 : 0
+  const cleanPct = total > 0 ? (clean / total) * 100 : 0
+  
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-text-muted">Blacklist Status</span>
+        <span className={cn(
+          "font-medium",
+          listed > 0 ? 'text-danger' : 'text-success'
+        )}>
+          {listed > 0 ? `${listed} Listed` : 'Clean'}
+        </span>
+      </div>
+      <div className="h-4 bg-surface-2 rounded-full overflow-hidden flex">
+        {listed > 0 && (
+          <div
+            className="h-full bg-danger transition-all duration-500"
+            style={{ width: `${listedPct}%` }}
+          />
+        )}
+        <div
+          className="h-full bg-success transition-all duration-500"
+          style={{ width: `${cleanPct}%` }}
+        />
+      </div>
+      <div className="flex justify-between text-xs text-text-muted">
+        <span>{clean} Clean</span>
+        <span>{total} Total</span>
+      </div>
+    </div>
+  )
+}
+
+// Port Status Visual
+function PortStatusChart({ open, filtered, closed }: { open: number; filtered: number; closed: number }) {
+  const total = open + filtered + closed
+  const data = [
+    { name: 'Open', value: open, color: '#22c55e' },
+    { name: 'Filtered', value: filtered, color: '#f59e0b' },
+    { name: 'Closed', value: closed, color: '#6b7280' },
+  ]
+  
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-text-muted">Port Status</span>
+        <span className="text-sm font-medium">{open} Open</span>
+      </div>
+      <div className="h-4 bg-surface-2 rounded-full overflow-hidden flex">
+        {data.map((item, i) => (
+          item.value > 0 && (
+            <div
+              key={i}
+              className="h-full transition-all duration-500"
+              style={{ 
+                width: `${(item.value / total) * 100}%`,
+                backgroundColor: item.color
+              }}
+              title={`${item.name}: ${item.value}`}
+            />
+          )
+        ))}
+      </div>
+      <div className="flex justify-between text-xs">
+        {data.map((item, i) => (
+          <div key={i} className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+            <span className="text-text-muted">{item.name}: {item.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Domain Age Timeline
+function DomainAgeTimeline({ created, expires }: { created: string; expires: string }) {
+  const createdDate = new Date(created)
+  const expiresDate = new Date(expires)
+  const now = new Date()
+  
+  const totalDays = (expiresDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)
+  const daysLived = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)
+  const daysRemaining = (expiresDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+  const livePct = Math.min(100, (daysLived / totalDays) * 100)
+  const remainingPct = Math.max(0, (daysRemaining / totalDays) * 100)
+  
+  const formatDate = (d: Date) => d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+  
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-between text-sm">
+        <div>
+          <span className="text-text-muted">Created: </span>
+          <span className="font-medium">{formatDate(createdDate)}</span>
+        </div>
+        <div>
+          <span className="text-text-muted">Expires: </span>
+          <span className="font-medium">{formatDate(expiresDate)}</span>
+        </div>
+      </div>
+      <div className="relative">
+        <div className="h-4 bg-surface-2 rounded-full overflow-hidden flex">
+          <div
+            className="h-full bg-success transition-all duration-500"
+            style={{ width: `${livePct}%` }}
+          />
+          <div
+            className="h-full bg-accent transition-all duration-500"
+            style={{ width: `${remainingPct}%` }}
+          />
+        </div>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-xs font-medium bg-surface px-2 py-0.5 rounded">
+            {Math.floor(daysLived)} days lived
+          </span>
+        </div>
+      </div>
+      <div className="flex justify-between text-xs text-text-muted">
+        <span>{Math.floor(daysRemaining)} days remaining</span>
+        <span>Total: {Math.floor(totalDays)} days ({Math.floor(totalDays/365)} years)</span>
+      </div>
+    </div>
+  )
+}
+
 // DNS Record table
 function DNSRecordsTable({ data }: { data: any }) {
   return (
@@ -327,21 +601,28 @@ function SubdomainsResult({ data }: { data: any }) {
 
 // Port scan result
 function PortScanResult({ data }: { data: any }) {
-  const openPorts = data?.open_ports || []
-  const filtered = openPorts.filter((p: any) => p.status === 'open')
+  const ports = data?.ports || []
+  const openPorts = ports.filter((p: any) => p.state === 'open')
+  const filteredPorts = ports.filter((p: any) => p.state === 'filtered')
+  const closedPorts = ports.filter((p: any) => p.state === 'closed')
 
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <StatusIcon status={filtered.length > 0 ? 'done' : 'error'} />
-        <span className="font-medium">{filtered.length} Open Ports</span>
+        <StatusIcon status={openPorts.length > 0 ? 'done' : 'error'} />
+        <span className="font-medium">{openPorts.length} Open Ports</span>
       </div>
-      {filtered.length > 0 && (
+      <PortStatusChart 
+        open={openPorts.length} 
+        filtered={filteredPorts.length} 
+        closed={closedPorts.length} 
+      />
+      {openPorts.length > 0 && (
         <div className="grid grid-cols-4 gap-1">
-          {filtered.slice(0, 12).map((p: any, i: number) => (
-            <div key={i} className="px-2 py-1 bg-surface-2 rounded text-xs text-center">
-              <span className="font-mono">{p.port}</span>
-              <div className="text-[10px] text-text-muted truncate">{p.service || ''}</div>
+          {openPorts.slice(0, 12).map((p: any, i: number) => (
+            <div key={i} className="px-2 py-1 bg-success/10 border border-success/20 rounded text-xs text-center">
+              <span className="font-mono text-success">{p.port}</span>
+              <div className="text-[10px] text-text-muted truncate">{p.name || ''}</div>
             </div>
           ))}
         </div>
@@ -750,6 +1031,18 @@ export default function Recon() {
     return { done, errors, total: entries.length, totalDuration }
   }, [tools, startTime])
 
+  // Get deliverability score for gauge
+  const getDeliverabilityScore = () => {
+    const data = tools.deliverability.data as any
+    return data?.score || 0
+  }
+
+  // Get deliverability grade
+  const getDeliverabilityGrade = () => {
+    const data = tools.deliverability.data as any
+    return data?.grade || 'N/A'
+  }
+
   // Render tool-specific content
   const renderToolContent = (key: string, tool: ToolResult) => {
     if (tool.status !== 'done' || !tool.data) return null
@@ -906,24 +1199,96 @@ export default function Recon() {
         </div>
       )}
 
-      {/* Summary Stats */}
+      {/* Visual Summary Dashboard */}
       {!running && stats.done > 0 && (
-        <div className="mb-6 grid grid-cols-4 gap-4">
-          <div className="bg-surface rounded-lg p-4 border border-border">
-            <div className="text-2xl font-bold text-success">{stats.done}</div>
-            <div className="text-sm text-text-muted">Completed</div>
+        <div className="mb-6 grid grid-cols-12 gap-4">
+          {/* Security Score - Large Card */}
+          <div className="col-span-12 lg:col-span-3 bg-surface rounded-lg p-4 border border-border">
+            <div className="text-sm font-medium text-text-muted mb-2">Security Score</div>
+            <SecurityScoreGauge 
+              score={getDeliverabilityScore()} 
+              grade={getDeliverabilityGrade()} 
+            />
           </div>
-          <div className="bg-surface rounded-lg p-4 border border-border">
-            <div className="text-2xl font-bold text-danger">{stats.errors}</div>
-            <div className="text-sm text-text-muted">Errors</div>
+
+          {/* Email Authentication Chart */}
+          <div className="col-span-12 lg:col-span-4 bg-surface rounded-lg p-4 border border-border">
+            <div className="text-sm font-medium text-text-muted mb-3">Email Security</div>
+            <EmailAuthChart 
+              spf={tools.spf.status === 'done' && !!tools.spf.data}
+              dkim={tools.dkim.status === 'done' && !!(tools.dkim.data as any)?.record}
+              dmarc={tools.dmarc.status === 'done' && !!(tools.dmarc.data as any)?.record}
+              mtasts={false}
+              tlsrpt={false}
+              bimi={false}
+              dnssec={tools.dnssec.status === 'done' && !!(tools.dnssec.data as any)?.secure}
+            />
           </div>
-          <div className="bg-surface rounded-lg p-4 border border-border">
-            <div className="text-2xl font-bold text-accent">{stats.totalDuration}ms</div>
-            <div className="text-sm text-text-muted">Total Time</div>
+
+          {/* DNS Records Chart */}
+          <div className="col-span-12 lg:col-span-5 bg-surface rounded-lg p-4 border border-border">
+            <div className="text-sm font-medium text-text-muted mb-3">DNS Records</div>
+            <DNSRecordPie 
+              a={(tools.dns.data as any)?.a?.length || 0}
+              aaaa={(tools.dns.data as any)?.aaaa?.length || 0}
+              mx={(tools.mx.data as any)?.mx?.length || 0}
+              txt={(tools.dns.data as any)?.txt?.length || 0}
+              ns={(tools.dns.data as any)?.ns?.length || 0}
+              cname={(tools.dns.data as any)?.cname ? 1 : 0}
+            />
           </div>
-          <div className="bg-surface rounded-lg p-4 border border-border">
-            <div className="text-2xl font-bold text-info">{stats.total}</div>
-            <div className="text-sm text-text-muted">Total Tools</div>
+
+          {/* Domain Age Timeline */}
+          {tools.whois.status === 'done' && (tools.whois.data as any)?.created_at && (
+            <div className="col-span-12 lg:col-span-6 bg-surface rounded-lg p-4 border border-border">
+              <div className="text-sm font-medium text-text-muted mb-3">Domain Timeline</div>
+              <DomainAgeTimeline 
+                created={(tools.whois.data as any).created_at}
+                expires={(tools.whois.data as any).expires_at}
+              />
+            </div>
+          )}
+
+          {/* Blacklist Status */}
+          <div className="col-span-12 lg:col-span-6 bg-surface rounded-lg p-4 border border-border">
+            <div className="text-sm font-medium text-text-muted mb-3">Reputation</div>
+            <BlacklistStatusChart 
+              listed={(tools.blacklist.data as any)?.listed_count || 0}
+              clean={(tools.blacklist.data as any)?.clean_count || 0}
+              total={(tools.blacklist.data as any)?.total_count || 0}
+            />
+          </div>
+
+          {/* Port Status */}
+          <div className="col-span-12 lg:col-span-4 bg-surface rounded-lg p-4 border border-border">
+            <div className="text-sm font-medium text-text-muted mb-3">Ports</div>
+            <PortStatusChart 
+              open={(tools.portscan.data as any)?.ports?.filter((p: any) => p.state === 'open').length || 0}
+              filtered={(tools.portscan.data as any)?.ports?.filter((p: any) => p.state === 'filtered').length || 0}
+              closed={(tools.portscan.data as any)?.ports?.filter((p: any) => p.state === 'closed').length || 0}
+            />
+          </div>
+
+          {/* Quick Stats */}
+          <div className="col-span-12 lg:col-span-8 bg-surface rounded-lg p-4 border border-border">
+            <div className="grid grid-cols-4 gap-4 text-center">
+              <div>
+                <div className="text-2xl font-bold text-success">{stats.done}</div>
+                <div className="text-xs text-text-muted">Completed</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-danger">{stats.errors}</div>
+                <div className="text-xs text-text-muted">Errors</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-accent">{stats.totalDuration}ms</div>
+                <div className="text-xs text-text-muted">Total Time</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-info">{stats.total}</div>
+                <div className="text-xs text-text-muted">Total Tools</div>
+              </div>
+            </div>
           </div>
         </div>
       )}
