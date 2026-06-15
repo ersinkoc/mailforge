@@ -490,6 +490,12 @@ export default function Recon() {
   const [input, setInput] = useState('')
   const [running, setRunning] = useState(false)
   const [startTime, setStartTime] = useState<number | null>(null)
+  const [mounted, setMounted] = useState(false)
+
+  // Ensure component only renders on client to avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const [tools, setTools] = useState<Record<string, ToolResult>>({
     whois: { name: 'WHOIS', status: 'pending' },
@@ -835,6 +841,22 @@ export default function Recon() {
         {tool.status === 'error' && tool.error && (
           <p className="text-xs text-danger">{tool.error}</p>
         )}
+      </div>
+    )
+  }
+
+  // Prevent hydration mismatch by only rendering on client
+  if (!mounted) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <PageHeader
+          title="Reconnaissance"
+          subtitle="Loading..."
+          icon={Globe}
+        />
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-accent" />
+        </div>
       </div>
     )
   }
